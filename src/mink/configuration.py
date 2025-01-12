@@ -70,18 +70,22 @@ class Configuration:
 
         self.update(q=q)
 
-    def update(self, q: np.ndarray | None = None) -> None:
+    def update(self, q: Optional[np.ndarray] = None, kinematics_only: bool = True) -> None:
         """Run forward kinematics.
 
         Args:
             q: Optional configuration vector to override internal `data.qpos` with.
+            kinematics_only: If True, only compute kinematic quantities. Else, a full mj_step is done
         """
         if q is not None:
             self.data.qpos = q
         # The minimal function call required to get updated frame transforms is
         # mj_kinematics. An extra call to mj_comPos is required for updated Jacobians.
-        mujoco.mj_kinematics(self.model, self.data)
-        mujoco.mj_comPos(self.model, self.data)
+        if kinematics_only:
+            mujoco.mj_kinematics(self.model, self.data)
+            mujoco.mj_comPos(self.model, self.data)
+        else:
+            mujoco.mj_step(self.model, self.data)
         if self.model.neq > 0:
             mujoco.mj_makeConstraint(self.model, self.data)
 
@@ -297,6 +301,20 @@ class Configuration:
         mujoco.mj_fullM(self.model, M, self.data.qM)
         return M
 
+    def apply_ctrl(self, arm_dof: int, hand_dof: int, velocity: np.ndarray, dt: float) -> None:
+        """Integrate a velocity and update the current configuration inplace.
+
+        Args:
+            arm_dof: Number of arm joints.
+            hand_dof: Number of hand joints.
+            velocity: The velocity in tangent space.
+            dt: Integration duration in [s].
+        """
+        #mujoco.mj_integratePos(self.model, self.data.qpos, velocity, dt)
+        q = self.integrate(velocity, dt)
+        self.data.ctrl[:arm_dof] = velocity[:arm_dof]
+        self.data.qpos[-hand_dof:] = q[-hand_dof:]
+        self.update(kinematics_only=False)
     # Aliases.
 
     @property

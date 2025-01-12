@@ -159,13 +159,13 @@
   </contact>
 
   <actuator>
-    <general name="actuator1" joint="joint1" class="joint1"/>
-    <general name="actuator2" joint="joint2" class="joint2"/>
-    <general name="actuator3" joint="joint3" class="joint1"/>
-    <general name="actuator4" joint="joint4" class="joint2"/>
-    <general name="actuator5" joint="joint5" class="joint1"/>
-    <general name="actuator6" joint="joint6" class="joint2"/>
-    <general name="actuator7" joint="joint7" class="joint3"/>
+    <velocity name="actuator1" joint="joint1" class="joint1"/>
+    <velocity name="actuator2" joint="joint2" class="joint2"/>
+    <velocity name="actuator3" joint="joint3" class="joint1"/>
+    <velocity name="actuator4" joint="joint4" class="joint2"/>
+    <velocity name="actuator5" joint="joint5" class="joint1"/>
+    <velocity name="actuator6" joint="joint6" class="joint2"/>
+    <velocity name="actuator7" joint="joint7" class="joint3"/>
   </actuator>
 
   <keyframe>
