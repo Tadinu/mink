@@ -109,6 +109,9 @@
   <asset>
     <material name="black" rgba="0.2 0.2 0.2 1"/>
     <material name="white" rgba="0.9 0.9 0.9 1"/>
+    <material name="red" rgba="0.9 0. 0. 1"/>
+    <material name="green" rgba="0. 0.9 0. 1"/>
+    <material name="blue" rgba="0. 0. 0.9 1"/>
 
     <mesh file="base_link_left.stl"/>
     <mesh file="link_0.0.stl"/>
@@ -145,7 +148,7 @@
               <geom class="distal_visual"/>
               <geom class="distal_collision"/>
               <body name="rf_tip">
-                <geom class="fingertip_visual"/>
+                <geom class="fingertip_visual" material="red"/>
                 <geom class="fingertip_collision"/>
                 <site name="rf_tip" size="0.001" rgba="1 0 0 1" group="4" pos="0 0 0.03"/>
               </body>
@@ -171,7 +174,7 @@
               <geom class="distal_visual"/>
               <geom class="distal_collision"/>
               <body name="mf_tip">
-                <geom class="fingertip_visual"/>
+                <geom class="fingertip_visual" material="green"/>
                 <geom class="fingertip_collision"/>
                 <site name="mf_tip" size="0.001" rgba="1 0 0 1" group="4" pos="0 0 0.03"/>
               </body>
@@ -197,7 +200,7 @@
               <geom class="distal_visual"/>
               <geom class="distal_collision"/>
               <body name="ff_tip">
-                <geom class="fingertip_visual"/>
+                <geom class="fingertip_visual" material="blue"/>
                 <geom class="fingertip_collision"/>
                 <site name="ff_tip" size="0.001" rgba="1 0 0 1" group="4" pos="0 0 0.03"/>
               </body>
