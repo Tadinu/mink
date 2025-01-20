@@ -1,0 +1,84 @@
+<mujoco model="PlanarRobotScene">
+    <include file="../common.xml"/>
+    <size memory="10K"/>
+
+    <custom>
+        <!-- agent -->
+        <numeric name="task_risk" data="1"/>
+        <numeric name="agent_planner" data="0"/>
+        <numeric name="agent_horizon" data="0.5"/>
+        <numeric name="agent_timestep" data="0.01"/>
+        <numeric name="agent_policy_width" data="0.0015"/>
+        <numeric name="sampling_spline_points" data="5"/>
+        <numeric name="sampling_exploration" data="0.01"/>
+        <numeric name="gradient_spline_points" data="5"/>
+
+        <!-- estimator -->
+        <numeric name="estimator" data="0"/>
+        <numeric name="estimator_sensor_start" data="3"/>
+        <numeric name="estimator_number_sensor" data="3"/>
+        <numeric name="estimator_timestep" data="0.01"/>
+        <numeric name="batch_configuration_length" data="10"/>
+        <numeric name="batch_scale_prior" data="1.0e-3"/>
+    </custom>
+
+    <sensor>
+        <!-- cost -->
+        <user name="Position" dim="2" user="0 5.0 0.0 10.0"/>
+        <user name="Velocity" dim="2" user="0 0.1 0.0 1.0"/>
+        <user name="Control" dim="2" user="0 0.1 0.0 1.0"/>
+
+        <!-- estimator -->
+        <jointpos name="x" joint="joint1"/>
+        <jointpos name="y" joint="joint2"/>
+        <accelerometer name="acc" site="hand"/>
+
+        <!-- trace -->
+        <framepos name="trace0" objtype="site" objname="hand"/>
+
+        <!-- residual -->
+        <framepos name="position" objtype="site" objname="hand"/>
+        <framelinvel name="velocity" objtype="site" objname="hand"/>
+    </sensor>
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+        <rgba haze="0.15 0.25 0.35 1"/>
+        <global azimuth="120" elevation="-20"/>
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+                 markrgb="0.8 0.8 0.8" width="300" height="300"/>
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+        <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+        <body name="obstacle_0" pos="0.0 -0.9 0.3">
+            <geom type="sphere" name="obstacle_0" size=".1" rgba="0 0 0 0"/>
+        </body>
+        <body name="obstacle_0_mocap" mocap="true" pos="0.0 -0.9 0.3">
+            <geom type="sphere" name="obstacle_0_mocap" size=".1" rgba="1 0 0 .5"/>
+        </body>
+
+        <body name="obstacle_1" pos="0.0 1.2 1.4">
+            <geom type="sphere" name="obstacle_1" size=".3" rgba="0 0 0 0"/>
+        </body>
+        <body name="obstacle_1_mocap" mocap="true" pos="0.0 1.2 1.4">
+            <geom type="sphere" name="obstacle_1_mocap" size=".3" rgba="1 0 0 .5"/>
+        </body>
+
+        <!-- For target dynamics info tracking, which mocap does not provide -->
+        <body name="target" pos="0.0 1.0 1.0" quat="1 0 0 0">
+            <geom type="sphere" name="target" size=".05" rgba="0 0 0 0"/>
+        </body>
+        <body name="target_mocap" mocap="true" pos="0.0 1.0 1.0">
+            <geom type="sphere" name="target_mocap" size=".1" rgba="0 1 0 .5"/>
+        </body>
+    </worldbody>
+
+    <include file="planar_2dof.xml"/>
+</mujoco>
