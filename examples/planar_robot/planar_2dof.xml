@@ -1,0 +1,52 @@
+<mujoco model="planar_2dof">
+    <compiler angle="radian"/>
+
+    <option gravity="0 0 0" integrator="implicitfast" timestep="0.01">
+        <flag contact="enable"/>
+    </option>
+
+    <asset>
+        <texture name="cube" type="cube"
+                 fileup="../common_assets/reorientation_cube_textures/fileup.png"
+                 fileback="../common_assets/reorientation_cube_textures/fileback.png"
+                 filedown="../common_assets/reorientation_cube_textures/filedown.png"
+                 filefront="../common_assets/reorientation_cube_textures/filefront.png"
+                 fileleft="../common_assets/reorientation_cube_textures/fileleft.png"
+                 fileright="../common_assets/reorientation_cube_textures/fileright.png"/>
+        <material name="cube" texture="cube"/>
+    </asset>
+
+    <worldbody>
+        <body name="link0">
+            <geom name="link0" size="0.1" pos="0 0 0.1" type="sphere" material="cube"/>
+            <body name="link1" pos="0 0 0.1">
+                <inertial pos="0 0 0.5" mass="1" diaginertia="0.0858 0.0858 0.005"/>
+                <joint name="joint1" pos="0 0 0" axis="1 0 0" range="-2.8973 2.8973" actuatorfrcrange="-87 87"/>
+                <geom name="link1" size="0.1 0.5" pos="0 0 0.6" type="cylinder"/>
+                <body name="link2" pos="0 0 1.1">
+                    <inertial pos="0 0 0.50007" mass="1.0001" diaginertia="0.0858997 0.0858997 0.00505"/>
+                    <joint name="joint2" pos="0 0 0" axis="1 0 0" range="-1.7628 1.7628" actuatorfrcrange="-87 87"/>
+                    <geom name="link2"  size="0.1 0.5" pos="0 0 0.6" type="cylinder"/>
+                    <body name="hand" pos="0 0 1.2">
+                        <inertial pos="0 0 0.005" mass="0.0001" diaginertia="0.00005 0.00005 0.00005"/>
+                        <geom name="hand" size="0.1" pos="0 0 0.005" type="sphere" material="cube"/>
+                        <site name="hand" pos="0 0 0.005" size="0.01"/>
+                    </body>
+                </body>
+            </body>
+        </body>
+    </worldbody>
+
+    <actuator>
+        <position joint="joint1" ctrlrange="-3.14158 3.14158" kp="100" kv="10" ctrllimited="true"/>
+        <position joint="joint2" ctrlrange="-3.14158 3.14158" kp="100" kv="10" ctrllimited="true"/>
+        <!--
+        <velocity joint="joint1" ctrlrange="-2.0 2.0" ctrllimited="true" kv="500"/>
+        <velocity joint="joint2" ctrlrange="-2.0 2.0" ctrllimited="true" kv="500"/>
+        -->
+    </actuator>
+
+    <keyframe>
+        <key name="home" qpos="0 0.5" ctrl="0 0"/>
+    </keyframe>
+</mujoco>
