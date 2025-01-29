@@ -53,6 +53,7 @@ class Task(abc.ABC):
 
     def __init__(
         self,
+        name: str,
         cost: np.ndarray,
         gain: float = 1.0,
         lm_damping: float = 0.0,
@@ -74,6 +75,7 @@ class Task(abc.ABC):
         if lm_damping < 0.0:
             raise InvalidDamping("`lm_damping` must be >= 0")
 
+        self.name = name
         self.cost = cost
         self.gain = gain
         self.lm_damping = lm_damping
