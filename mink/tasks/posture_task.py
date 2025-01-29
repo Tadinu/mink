@@ -34,6 +34,7 @@ class PostureTask(Task):
         lm_damping: float = 0.0,
     ):
         super().__init__(
+            name=f"PostureTask_{model.names[0]}",
             cost=np.zeros((model.nv,)),
             gain=gain,
             lm_damping=lm_damping,
