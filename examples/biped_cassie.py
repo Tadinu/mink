@@ -25,7 +25,7 @@ def main():
             orientation_cost=10.0,
         ),
         posture_task := mink.PostureTask(model, cost=1.0),
-        com_task := mink.ComTask(cost=200.0),
+        com_task := mink.ComTask(name="comtask",cost=200.0),
     ]
 
     # Note: By not providing `equality_name`, all equality constraints in the model

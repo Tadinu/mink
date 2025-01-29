@@ -46,7 +46,8 @@ class RelativeFrameTask(Task):
         gain: float = 1.0,
         lm_damping: float = 0.0,
     ):
-        super().__init__(cost=np.zeros((self.k,)), gain=gain, lm_damping=lm_damping)
+        super().__init__(name=f"RelativeFrameTask_{frame_name}_{root_name}",
+                         cost=np.zeros((self.k,)), gain=gain, lm_damping=lm_damping)
         self.frame_name = frame_name
         self.frame_type = frame_type
         self.root_name = root_name

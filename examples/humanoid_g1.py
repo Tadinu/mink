@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import mujoco
@@ -33,7 +34,7 @@ if __name__ == "__main__":
             lm_damping=1.0,
         ),
         posture_task := mink.PostureTask(model, cost=1e-1),
-        com_task := mink.ComTask(cost=10.0),
+        com_task := mink.ComTask(name=os.path.splitext(os.path.basename(__file__))[0], cost=10.0),
     ]
 
     feet_tasks = []

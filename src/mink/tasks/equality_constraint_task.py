@@ -110,7 +110,7 @@ class EqualityConstraintTask(Task):
         self._eq_id_to_pos[self._eq_ids] = np.arange(self._neq_total)
         self._mask: np.ndarray | None = None
 
-        super().__init__(cost=np.zeros((1,)), gain=gain, lm_damping=lm_damping)
+        super().__init__(name=f"PostureTask_{model.names[0]}", cost=np.zeros((1,)), gain=gain, lm_damping=lm_damping)
         self.set_cost(cost)
 
     def set_cost(self, cost: npt.ArrayLike) -> None:
