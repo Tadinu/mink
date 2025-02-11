@@ -1,0 +1,419 @@
+<mujoco model="iiwa14">
+  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+
+  <option integrator="implicitfast"/>
+
+  <default>
+    <default class="iiwa">
+      <default class="visual">
+        <geom type="mesh" contype="0" conaffinity="0" group="2" material="gray"/>
+      </default>
+      <default class="collision">
+        <geom group="3"/>
+      </default>
+      <joint axis="0 0 1"/>
+      <default class="joint1">
+        <joint range="-2.96706 2.96706"/>
+        <default class="joint2">
+          <joint range="-2.0944 2.0944"/>
+        </default>
+      </default>
+      <default class="joint3">
+        <joint range="-3.05433 3.05433"/>
+      </default>
+    </default>
+    <default class="allegro_left/main">
+      <default class="allegro_left/allegro_left">
+        <joint damping="0.1"/>
+        <geom density="800"/>
+        <general biastype="affine" biasprm="0 -1"/>
+        <default class="allegro_left/visual">
+          <geom type="mesh" contype="0" conaffinity="0" group="2" material="black"/>
+          <default class="allegro_left/palm_visual">
+            <geom mesh="base_link"/>
+          </default>
+          <default class="allegro_left/base_visual">
+            <geom mesh="link_0.0"/>
+          </default>
+          <default class="allegro_left/proximal_visual">
+            <geom mesh="link_1.0"/>
+          </default>
+          <default class="allegro_left/medial_visual">
+            <geom mesh="link_2.0"/>
+          </default>
+          <default class="allegro_left/distal_visual">
+            <geom mesh="link_3.0"/>
+          </default>
+          <default class="allegro_left/fingertip_visual">
+            <geom material="white" mesh="link_3.0_tip"/>
+          </default>
+          <default class="allegro_left/thumbtip_visual">
+            <geom material="white" mesh="link_15.0_tip"/>
+          </default>
+        </default>
+        <default class="allegro_left/collision">
+          <geom type="box" group="3"/>
+          <default class="allegro_left/palm_collision">
+            <geom size="0.0204 0.0565 0.0475"/>
+          </default>
+          <default class="allegro_left/base_collision">
+            <geom size="0.0098 0.01375 0.0082"/>
+            <default class="allegro_left/thumb_base_collision">
+              <geom size="0.0179 0.017 0.02275"/>
+            </default>
+          </default>
+          <default class="allegro_left/proximal_collision">
+            <geom size="0.0098 0.01375 0.027"/>
+            <default class="allegro_left/thumb_proximal_collision">
+              <geom size="0.0098 0.01375 0.00885"/>
+            </default>
+          </default>
+          <default class="allegro_left/medial_collision">
+            <geom size="0.0098 0.01375 0.0192"/>
+            <default class="allegro_left/thumb_medial_collision">
+              <geom size="0.0098 0.01375 0.0257"/>
+            </default>
+          </default>
+          <default class="allegro_left/distal_collision">
+            <geom size="0.0098 0.01375 0.008"/>
+            <default class="allegro_left/thumb_distal_collision">
+              <geom size="0.0098 0.01375 0.0157"/>
+            </default>
+          </default>
+          <default class="allegro_left/fingertip_collision">
+            <geom size="0.012 0.01 0" type="capsule"/>
+            <default class="allegro_left/thumbtip_collision">
+              <geom size="0.012 0.008 0"/>
+            </default>
+          </default>
+        </default>
+        <default class="allegro_left/base">
+          <joint range="-0.47 0.47"/>
+          <general ctrlrange="-0.47 0.47"/>
+        </default>
+        <default class="allegro_left/proximal">
+          <joint range="-0.196 1.61"/>
+          <general ctrlrange="-0.196 1.61"/>
+        </default>
+        <default class="allegro_left/medial">
+          <joint range="-0.174 1.709"/>
+          <general ctrlrange="-0.174 1.709"/>
+        </default>
+        <default class="allegro_left/distal">
+          <joint range="-0.227 1.618"/>
+          <general ctrlrange="-0.227 1.618"/>
+        </default>
+        <default class="allegro_left/thumb_base">
+          <joint range="0.263 1.396"/>
+          <general ctrlrange="0.263 1.396"/>
+        </default>
+        <default class="allegro_left/thumb_proximal">
+          <joint range="-0.105 1.163"/>
+          <general ctrlrange="-0.105 1.163"/>
+        </default>
+        <default class="allegro_left/thumb_medial">
+          <joint range="-0.189 1.644"/>
+          <general ctrlrange="-0.189 1.644"/>
+        </default>
+        <default class="allegro_left/thumb_distal">
+          <joint range="-0.162 1.719"/>
+          <general ctrlrange="-0.162 1.719"/>
+        </default>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <material name="gray" class="iiwa" rgba="0.4 0.4 0.4 1"/>
+    <material name="light_gray" class="iiwa" rgba="0.6 0.6 0.6 1"/>
+    <material name="black" class="iiwa" rgba="0 0 0 1"/>
+    <material name="orange" class="iiwa" rgba="1 0.423529 0.0392157 1"/>
+    <material name="allegro_left/black" rgba="0.2 0.2 0.2 1"/>
+    <material name="allegro_left/white" rgba="0.9 0.9 0.9 1"/>
+    <mesh file="link_0.obj"/>
+    <mesh file="link_1.obj"/>
+    <mesh file="link_2_orange.obj"/>
+    <mesh file="link_2_grey.obj"/>
+    <mesh file="link_3.obj"/>
+    <mesh file="band.obj"/>
+    <mesh file="kuka.obj"/>
+    <mesh file="link_4_orange.obj"/>
+    <mesh file="link_4_grey.obj"/>
+    <mesh file="link_5.obj"/>
+    <mesh file="link_6_orange.obj"/>
+    <mesh file="link_6_grey.obj"/>
+    <mesh file="link_7.obj"/>
+    <mesh name="allegro_left/base_link_left" file="base_link_left.stl"/>
+    <mesh name="allegro_left/link_0.0" file="link_0.0.stl"/>
+    <mesh name="allegro_left/link_1.0" file="link_1.0.stl"/>
+    <mesh name="allegro_left/link_2.0" file="link_2.0.stl"/>
+    <mesh name="allegro_left/link_3.0" file="link_3.0.stl"/>
+    <mesh name="allegro_left/link_3.0_tip" file="link_3.0_tip.stl"/>
+    <mesh name="allegro_left/link_12.0_left" file="link_12.0_left.stl"/>
+    <mesh name="allegro_left/link_13.0" file="link_13.0.stl"/>
+    <mesh name="allegro_left/link_14.0" file="link_14.0.stl"/>
+    <mesh name="allegro_left/link_15.0" file="link_15.0.stl"/>
+    <mesh name="allegro_left/link_15.0_tip" file="link_15.0_tip.stl"/>
+  </asset>
+
+  <worldbody>
+    <light name="top" pos="0 0 2" mode="trackcom"/>
+    <body name="base" childclass="iiwa">
+      <inertial mass="5" pos="-0.1 0 0.07" diaginertia="0.05 0.06 0.03"/>
+      <geom class="visual" mesh="link_0"/>
+      <geom class="collision" size="0.12" pos="0 0 0.03"/>
+      <geom class="collision" size="0.08" pos="-0.08 0 0.103"/>
+      <geom class="collision" size="0.08" pos="-0.08 0 0.04"/>
+      <geom class="collision" size="0.1" pos="0 0 0.14"/>
+      <body name="link1" pos="0 0 0.1575">
+        <inertial mass="5.76" pos="0 -0.03 0.12" diaginertia="0.0333 0.033 0.0123"/>
+        <joint name="joint1" class="joint1"/>
+        <geom class="visual" mesh="link_1"/>
+        <geom class="collision" size="0.08" pos="0 0 -0.0005"/>
+        <geom class="collision" size="0.075" pos="0.01 -0.025 0.0425"/>
+        <geom class="collision" size="0.075" pos="-0.01 -0.025 0.0425"/>
+        <geom class="collision" size="0.07" pos="0.01 -0.045 0.1025"/>
+        <geom class="collision" size="0.07" pos="-0.01 -0.045 0.1025"/>
+        <body name="link2" pos="0 0 0.2025" quat="0 0 1 1">
+          <inertial mass="6.35" pos="0.0003 0.059 0.042" diaginertia="0.0305 0.0304 0.011" quat="0 0 1 1"/>
+          <joint name="joint2" class="joint2"/>
+          <geom class="visual" material="orange" mesh="link_2_orange"/>
+          <geom class="visual" mesh="link_2_grey"/>
+          <geom class="collision" size="0.095" pos="0 0 -0.01"/>
+          <geom class="collision" size="0.09" pos="0 0 0.045"/>
+          <geom class="collision" size="0.07" pos="-0.01 0.04 0.054"/>
+          <geom class="collision" size="0.065" pos="-0.01 0.09 0.04"/>
+          <geom class="collision" size="0.065" pos="-0.01 0.13 0.02"/>
+          <geom class="collision" size="0.07" pos="0.01 0.04 0.054"/>
+          <geom class="collision" size="0.065" pos="0.01 0.09 0.04"/>
+          <geom class="collision" size="0.065" pos="0.01 0.13 0.02"/>
+          <geom class="collision" size="0.075" pos="0 0.18 0"/>
+          <body name="link3" pos="0 0.2045 0" quat="0 0 1 1">
+            <inertial mass="3.5" pos="0 0.03 0.13" diaginertia="0.025 0.0238 0.0076"/>
+            <joint name="joint3" class="joint1"/>
+            <geom class="visual" mesh="link_3"/>
+            <geom class="visual" material="light_gray" mesh="band"/>
+            <geom class="visual" material="black" mesh="kuka"/>
+            <geom class="collision" size="0.075" pos="0 0 0.0355"/>
+            <geom class="collision" size="0.06" pos="0.01 0.023 0.0855"/>
+            <geom class="collision" size="0.055" pos="0.01 0.048 0.1255"/>
+            <geom class="collision" size="0.06" pos="0.01 0.056 0.1755"/>
+            <geom class="collision" size="0.06" pos="-0.01 0.023 0.0855"/>
+            <geom class="collision" size="0.055" pos="-0.01 0.048 0.1255"/>
+            <geom class="collision" size="0.06" pos="-0.01 0.056 0.1755"/>
+            <geom class="collision" size="0.075" pos="0 0.045 0.2155"/>
+            <geom class="collision" size="0.075" pos="0 0 0.2155"/>
+            <body name="link4" pos="0 0 0.2155" quat="1 1 0 0">
+              <inertial mass="3.5" pos="0 0.067 0.034" diaginertia="0.017 0.0164 0.006" quat="1 1 0 0"/>
+              <joint name="joint4" class="joint2"/>
+              <geom class="visual" material="orange" mesh="link_4_orange"/>
+              <geom class="visual" mesh="link_4_grey"/>
+              <geom class="collision" size="0.078" pos="0 0.01 0.046"/>
+              <geom class="collision" size="0.06" pos="0.01 0.06 0.052"/>
+              <geom class="collision" size="0.065" pos="0.01 0.12 0.034"/>
+              <geom class="collision" size="0.06" pos="-0.01 0.06 0.052"/>
+              <geom class="collision" size="0.065" pos="-0.01 0.12 0.034"/>
+              <geom class="collision" size="0.075" pos="0 0.184 0"/>
+              <body name="link5" pos="0 0.1845 0" quat="0 0 1 1">
+                <inertial mass="3.5" pos="0.0001 0.021 0.076" diaginertia="0.01 0.0087 0.00449"/>
+                <joint name="joint5" class="joint1"/>
+                <geom class="visual" mesh="link_5"/>
+                <geom class="visual" material="light_gray" mesh="band"/>
+                <geom class="visual" material="black" mesh="kuka"/>
+                <geom class="collision" size="0.075" pos="0 0 0.0335"/>
+                <geom class="collision" size="0.05" pos="-0.012 0.031 0.0755"/>
+                <geom class="collision" size="0.05" pos="0.012 0.031 0.0755"/>
+                <geom class="collision" size="0.04" pos="-0.012 0.06 0.1155"/>
+                <geom class="collision" size="0.04" pos="0.012 0.06 0.1155"/>
+                <geom class="collision" size="0.04" pos="-0.01 0.065 0.1655"/>
+                <geom class="collision" size="0.04" pos="0.01 0.065 0.1655"/>
+                <geom class="collision" size="0.035" pos="-0.012 0.065 0.1855"/>
+                <geom class="collision" size="0.035" pos="0.012 0.065 0.1855"/>
+                <body name="link6" pos="0 0 0.2155" quat="1 1 0 0">
+                  <inertial mass="1.8" pos="0 0.0006 0.0004" diaginertia="0.0049 0.0047 0.0036" quat="1 1 0 0"/>
+                  <joint name="joint6" class="joint2"/>
+                  <geom class="visual" material="orange" mesh="link_6_orange"/>
+                  <geom class="visual" mesh="link_6_grey"/>
+                  <geom class="collision" size="0.055" pos="0 0 -0.059"/>
+                  <geom class="collision" size="0.065" pos="0 -0.03 0.011"/>
+                  <geom class="collision" size="0.08"/>
+                  <body name="link7" pos="0 0.081 0" quat="0 0 1 1">
+                    <inertial mass="1.2" pos="0 0 0.02" diaginertia="0.001 0.001 0.001"/>
+                    <joint name="joint7" class="joint3"/>
+                    <geom class="visual" mesh="link_7"/>
+                    <geom class="collision" size="0.06" pos="0 0 0.001"/>
+                    <body name="attachment">
+                      <site name="attachment_site" rgba="1 0 0 1" size="0.01" pos="0 0 0.045" group="1"/>
+                      <body name="allegro_left/palm" childclass="allegro_left/allegro_left" pos="0 0 0.14">
+                        <geom class="allegro_left/palm_visual" quat="0.707107 -0.707107 0 0" material="allegro_left/black" mesh="allegro_left/base_link_left"/>
+                        <geom class="allegro_left/palm_collision" pos="-0.0093 0 -0.0475" mass="0"/>
+                        <body name="allegro_left/rf_base" pos="0 0.0435 -0.001542" quat="0.999048 -0.0436194 0 0">
+                          <joint name="allegro_left/rfj0" class="allegro_left/base" pos="0 0 0" axis="0 0 1"/>
+                          <geom class="allegro_left/base_visual" material="allegro_left/black" mesh="allegro_left/link_0.0"/>
+                          <geom class="allegro_left/base_collision" pos="0 0 0.0082" mass="0"/>
+                          <body name="allegro_left/rf_proximal" pos="0 0 0.0164">
+                            <joint name="allegro_left/rfj1" class="allegro_left/proximal" pos="0 0 0" axis="0 1 0"/>
+                            <geom class="allegro_left/proximal_visual" material="allegro_left/black" mesh="allegro_left/link_1.0"/>
+                            <geom class="allegro_left/proximal_collision" pos="0 0 0.027" mass="0"/>
+                            <body name="allegro_left/rf_medial" pos="0 0 0.054">
+                              <joint name="allegro_left/rfj2" class="allegro_left/medial" pos="0 0 0" axis="0 1 0"/>
+                              <geom class="allegro_left/medial_visual" material="allegro_left/black" mesh="allegro_left/link_2.0"/>
+                              <geom class="allegro_left/medial_collision" pos="0 0 0.0192" mass="0"/>
+                              <body name="allegro_left/rf_distal" pos="0 0 0.0384">
+                                <joint name="allegro_left/rfj3" class="allegro_left/distal" pos="0 0 0" axis="0 1 0"/>
+                                <geom class="allegro_left/distal_visual" material="allegro_left/black" mesh="allegro_left/link_3.0"/>
+                                <geom class="allegro_left/distal_collision" pos="0 0 0.008" mass="0"/>
+                                <body name="allegro_left/rf_tip">
+                                  <geom class="allegro_left/fingertip_visual" pos="0 0 0.0267" material="allegro_left/white" mesh="allegro_left/link_3.0_tip"/>
+                                  <geom class="allegro_left/fingertip_collision" pos="0 0 0.019" mass="0"/>
+                                  <site name="allegro_left/rf_tip" pos="0 0 0.03" size="0.001" group="4" rgba="1 0 0 1"/>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                        <body name="allegro_left/mf_base" pos="0 0 0.0007">
+                          <joint name="allegro_left/mfj0" class="allegro_left/base" pos="0 0 0" axis="0 0 1"/>
+                          <geom class="allegro_left/base_visual" material="allegro_left/black" mesh="allegro_left/link_0.0"/>
+                          <geom class="allegro_left/base_collision" pos="0 0 0.0082" mass="0"/>
+                          <body name="allegro_left/mf_proximal" pos="0 0 0.0164">
+                            <joint name="allegro_left/mfj1" class="allegro_left/proximal" pos="0 0 0" axis="0 1 0"/>
+                            <geom class="allegro_left/proximal_visual" material="allegro_left/black" mesh="allegro_left/link_1.0"/>
+                            <geom class="allegro_left/proximal_collision" pos="0 0 0.027" mass="0"/>
+                            <body name="allegro_left/mf_medial" pos="0 0 0.054">
+                              <joint name="allegro_left/mfj2" class="allegro_left/medial" pos="0 0 0" axis="0 1 0"/>
+                              <geom class="allegro_left/medial_visual" material="allegro_left/black" mesh="allegro_left/link_2.0"/>
+                              <geom class="allegro_left/medial_collision" pos="0 0 0.0192" mass="0"/>
+                              <body name="allegro_left/mf_distal" pos="0 0 0.0384">
+                                <joint name="allegro_left/mfj3" class="allegro_left/distal" pos="0 0 0" axis="0 1 0"/>
+                                <geom class="allegro_left/distal_visual" material="allegro_left/black" mesh="allegro_left/link_3.0"/>
+                                <geom class="allegro_left/distal_collision" pos="0 0 0.008" mass="0"/>
+                                <body name="allegro_left/mf_tip">
+                                  <geom class="allegro_left/fingertip_visual" pos="0 0 0.0267" material="allegro_left/white" mesh="allegro_left/link_3.0_tip"/>
+                                  <geom class="allegro_left/fingertip_collision" pos="0 0 0.019" mass="0"/>
+                                  <site name="allegro_left/mf_tip" pos="0 0 0.03" size="0.001" group="4" rgba="1 0 0 1"/>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                        <body name="allegro_left/ff_base" pos="0 -0.0435 -0.001542" quat="0.999048 0.0436194 0 0">
+                          <joint name="allegro_left/ffj0" class="allegro_left/base" pos="0 0 0" axis="0 0 1"/>
+                          <geom class="allegro_left/base_visual" material="allegro_left/black" mesh="allegro_left/link_0.0"/>
+                          <geom class="allegro_left/base_collision" pos="0 0 0.0082" mass="0"/>
+                          <body name="allegro_left/ff_proximal" pos="0 0 0.0164">
+                            <joint name="allegro_left/ffj1" class="allegro_left/proximal" pos="0 0 0" axis="0 1 0"/>
+                            <geom class="allegro_left/proximal_visual" material="allegro_left/black" mesh="allegro_left/link_1.0"/>
+                            <geom class="allegro_left/proximal_collision" pos="0 0 0.027" mass="0"/>
+                            <body name="allegro_left/ff_medial" pos="0 0 0.054">
+                              <joint name="allegro_left/ffj2" class="allegro_left/medial" pos="0 0 0" axis="0 1 0"/>
+                              <geom class="allegro_left/medial_visual" material="allegro_left/black" mesh="allegro_left/link_2.0"/>
+                              <geom class="allegro_left/medial_collision" pos="0 0 0.0192" mass="0"/>
+                              <body name="allegro_left/ff_distal" pos="0 0 0.0384">
+                                <joint name="allegro_left/ffj3" class="allegro_left/distal" pos="0 0 0" axis="0 1 0"/>
+                                <geom class="allegro_left/distal_visual" material="allegro_left/black" mesh="allegro_left/link_3.0"/>
+                                <geom class="allegro_left/distal_collision" pos="0 0 0.008" mass="0"/>
+                                <body name="allegro_left/ff_tip">
+                                  <geom class="allegro_left/fingertip_visual" pos="0 0 0.0267" material="allegro_left/white" mesh="allegro_left/link_3.0_tip"/>
+                                  <geom class="allegro_left/fingertip_collision" pos="0 0 0.019" mass="0"/>
+                                  <site name="allegro_left/ff_tip" pos="0 0 0.03" size="0.001" group="4" rgba="1 0 0 1"/>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                        <body name="allegro_left/th_base" pos="-0.0182 -0.019333 -0.045987" quat="0.477714 0.521334 -0.521334 0.477714">
+                          <joint name="allegro_left/thj0" class="allegro_left/thumb_base" pos="0 0 0" axis="1 0 0"/>
+                          <geom class="allegro_left/visual" quat="0 1 0 0" material="allegro_left/black" mesh="allegro_left/link_12.0_left"/>
+                          <geom class="allegro_left/thumb_base_collision" pos="-0.0179 0.009 0.0145" mass="0"/>
+                          <body name="allegro_left/th_proximal" pos="-0.027 -0.005 0.0399">
+                            <joint name="allegro_left/thj1" class="allegro_left/thumb_proximal" pos="0 0 0" axis="0 0 -1"/>
+                            <geom class="allegro_left/visual" material="allegro_left/black" mesh="allegro_left/link_13.0"/>
+                            <geom class="allegro_left/thumb_proximal_collision" pos="0 0 0.00885" mass="0"/>
+                            <body name="allegro_left/th_medial" pos="0 0 0.0177">
+                              <joint name="allegro_left/thj2" class="allegro_left/thumb_medial" pos="0 0 0" axis="0 1 0"/>
+                              <geom class="allegro_left/visual" material="allegro_left/black" mesh="allegro_left/link_14.0"/>
+                              <geom class="allegro_left/thumb_medial_collision" pos="0 0 0.0257" mass="0"/>
+                              <body name="allegro_left/th_distal" pos="0 0 0.0514">
+                                <joint name="allegro_left/thj3" class="allegro_left/thumb_distal" pos="0 0 0" axis="0 1 0"/>
+                                <geom class="allegro_left/visual" material="allegro_left/black" mesh="allegro_left/link_15.0"/>
+                                <geom class="allegro_left/thumb_distal_collision" pos="0 0 0.0157" mass="0"/>
+                                <body name="allegro_left/th_tip">
+                                  <geom class="allegro_left/thumbtip_visual" pos="0 0 0.0423" material="allegro_left/white" mesh="allegro_left/link_15.0_tip"/>
+                                  <geom class="allegro_left/thumbtip_collision" pos="0 0 0.035" mass="0"/>
+                                  <site name="allegro_left/th_tip" pos="0 0 0.045" size="0.001" group="4" rgba="1 0 0 1"/>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <body name="allegro_left/rf_tip_target" mocap="true">
+      <geom size="0.02" contype="0" conaffinity="0" rgba="0.9 0 0 1"/>
+    </body>
+    <body name="allegro_left/mf_tip_target" mocap="true">
+      <geom size="0.02" contype="0" conaffinity="0" rgba="0 0.9 0 1"/>
+    </body>
+    <body name="allegro_left/ff_tip_target" mocap="true">
+      <geom size="0.02" contype="0" conaffinity="0" rgba="0 0 0.9 1"/>
+    </body>
+    <body name="allegro_left/th_tip_target" mocap="true">
+      <geom size="0.02" contype="0" conaffinity="0" rgba="0.9 0.9 0.9 1"/>
+    </body>
+  </worldbody>
+
+  <contact>
+    <exclude body1="base" body2="link1"/>
+    <exclude body1="base" body2="link2"/>
+    <exclude body1="base" body2="link3"/>
+    <exclude body1="link1" body2="link3"/>
+    <exclude body1="link3" body2="link5"/>
+    <exclude body1="link4" body2="link7"/>
+    <exclude body1="link5" body2="link7"/>
+    <exclude body1="allegro_left/palm" body2="allegro_left/rf_base"/>
+    <exclude body1="allegro_left/palm" body2="allegro_left/mf_base"/>
+    <exclude body1="allegro_left/palm" body2="allegro_left/ff_base"/>
+    <exclude body1="allegro_left/palm" body2="allegro_left/th_base"/>
+    <exclude body1="allegro_left/palm" body2="allegro_left/th_proximal"/>
+  </contact>
+
+  <actuator>
+    <motor name="joint1" joint="joint1" ctrlrange="-320 320"/>
+    <motor name="joint2" joint="joint2" ctrlrange="-320 320"/>
+    <motor name="joint3" joint="joint3" ctrlrange="-176 176"/>
+    <motor name="joint4" joint="joint4" ctrlrange="-176 176"/>
+    <motor name="joint5" joint="joint5" ctrlrange="-110 110"/>
+    <motor name="joint6" joint="joint6" ctrlrange="-40 40"/>
+    <motor name="joint7" joint="joint7" ctrlrange="-40 40"/>
+    <motor name="allegro_left/ffj0" class="allegro_left/base" joint="allegro_left/ffj0"/>
+    <motor name="allegro_left/ffj1" class="allegro_left/proximal" joint="allegro_left/ffj1"/>
+    <motor name="allegro_left/ffj2" class="allegro_left/medial" joint="allegro_left/ffj2"/>
+    <motor name="allegro_left/ffj3" class="allegro_left/distal" joint="allegro_left/ffj3"/>
+    <motor name="allegro_left/mfj0" class="allegro_left/base" joint="allegro_left/mfj0"/>
+    <motor name="allegro_left/mfj1" class="allegro_left/proximal" joint="allegro_left/mfj1"/>
+    <motor name="allegro_left/mfj2" class="allegro_left/medial" joint="allegro_left/mfj2"/>
+    <motor name="allegro_left/mfj3" class="allegro_left/distal" joint="allegro_left/mfj3"/>
+    <motor name="allegro_left/rfj0" class="allegro_left/base" joint="allegro_left/rfj0"/>
+    <motor name="allegro_left/rfj1" class="allegro_left/proximal" joint="allegro_left/rfj1"/>
+    <motor name="allegro_left/rfj2" class="allegro_left/medial" joint="allegro_left/rfj2"/>
+    <motor name="allegro_left/rfj3" class="allegro_left/distal" joint="allegro_left/rfj3"/>
+    <motor name="allegro_left/thj0" class="allegro_left/thumb_base" joint="allegro_left/thj0"/>
+    <motor name="allegro_left/thj1" class="allegro_left/thumb_proximal" joint="allegro_left/thj1"/>
+    <motor name="allegro_left/thj2" class="allegro_left/thumb_medial" joint="allegro_left/thj2"/>
+    <motor name="allegro_left/thj3" class="allegro_left/thumb_distal" joint="allegro_left/thj3"/>
+  </actuator>
+
+  <keyframe>
+    <key name="home" qpos="-0.0759329 0.153982 0.104381 -1.8971 0.245996 0.34972 -0.239115 -0.0694123 0.0551428 0.986832 0.671424 -0.186261 -0.0866821 1.01374 0.728192 -0.218949 -0.0318307 1.25156 0.840648 1.0593 0.638801 0.391599 0.57284"/>
+  </keyframe>
+</mujoco>
