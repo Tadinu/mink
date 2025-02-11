@@ -17,17 +17,17 @@
     </asset>
 
     <worldbody>
-        <body name="link0">
+        <body name="link0" gravcomp="1">
             <geom name="link0" size="0.1" pos="0 0 0.1" type="sphere" material="cube"/>
-            <body name="link1" pos="0 0 0.1">
+            <body name="link1" pos="0 0 0.1" gravcomp="1">
                 <inertial pos="0 0 0.5" mass="1" diaginertia="0.0858 0.0858 0.005"/>
                 <joint name="joint1" pos="0 0 0" axis="1 0 0" range="-2.8973 2.8973" actuatorfrcrange="-87 87"/>
                 <geom name="link1" size="0.1 0.5" pos="0 0 0.6" type="cylinder"/>
-                <body name="link2" pos="0 0 1.1">
+                <body name="link2" pos="0 0 1.1" gravcomp="1">
                     <inertial pos="0 0 0.50007" mass="1.0001" diaginertia="0.0858997 0.0858997 0.00505"/>
                     <joint name="joint2" pos="0 0 0" axis="1 0 0" range="-1.7628 1.7628" actuatorfrcrange="-87 87"/>
                     <geom name="link2"  size="0.1 0.5" pos="0 0 0.6" type="cylinder"/>
-                    <body name="hand" pos="0 0 1.2">
+                    <body name="hand" pos="0 0 1.2" gravcomp="1">
                         <inertial pos="0 0 0.005" mass="0.0001" diaginertia="0.00005 0.00005 0.00005"/>
                         <geom name="hand" size="0.1" pos="0 0 0.005" type="sphere" material="cube"/>
                         <site name="hand" pos="0 0 0.005" size="0.01"/>

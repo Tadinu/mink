@@ -124,28 +124,28 @@
   </asset>
 
   <worldbody>
-    <body name="palm" quat="0 1 0 1" childclass="allegro_right">
+    <body name="palm" quat="0 1 0 1" childclass="allegro_right" gravcomp="1">
       <!-- <inertial mass="0.4154" pos="0 0 0.0475" diaginertia="1e-4 1e-4 1e-4"/> -->
       <geom class="palm_visual" mesh="base_link"/>
       <geom class="palm_collision"/>
       <!-- First finger -->
-      <body name="ff_base" pos="0 0.0435 -0.001542" quat="0.999048 -0.0436194 0 0">
+      <body name="ff_base" pos="0 0.0435 -0.001542" quat="0.999048 -0.0436194 0 0" gravcomp="1">
         <joint name="ffj0" class="base"/>
         <geom class="base_visual"/>
         <geom class="base_collision"/>
-        <body name="ff_proximal" pos="0 0 0.0164">
+        <body name="ff_proximal" pos="0 0 0.0164" gravcomp="1">
           <joint name="ffj1" class="proximal"/>
           <geom class="proximal_visual"/>
           <geom class="proximal_collision"/>
-          <body name="ff_medial" pos="0 0 0.054">
+          <body name="ff_medial" pos="0 0 0.054" gravcomp="1">
             <joint name="ffj2" class="medial"/>
             <geom class="medial_visual"/>
             <geom class="medial_collision"/>
-            <body name="ff_distal" pos="0 0 0.0384">
+            <body name="ff_distal" pos="0 0 0.0384" gravcomp="1">
               <joint name="ffj3" class="distal"/>
               <geom class="distal_visual"/>
               <geom class="distal_collision"/>
-              <body name="ff_tip">
+              <body name="ff_tip" gravcomp="1">
                 <geom class="fingertip_visual"/>
                 <geom class="fingertip_collision"/>
               </body>
@@ -154,23 +154,23 @@
         </body>
       </body>
       <!-- Middle finger -->
-      <body name="mf_base" pos="0 0 0.0007">
+      <body name="mf_base" pos="0 0 0.0007" gravcomp="1">
         <joint name="mfj0" class="base"/>
         <geom class="base_visual"/>
         <geom class="base_collision"/>
-        <body name="mf_proximal" pos="0 0 0.0164">
+        <body name="mf_proximal" pos="0 0 0.0164" gravcomp="1">
           <joint name="mfj1" class="proximal"/>
           <geom class="proximal_visual"/>
           <geom class="proximal_collision"/>
-          <body name="mf_medial" pos="0 0 0.054">
+          <body name="mf_medial" pos="0 0 0.054" gravcomp="1">
             <joint name="mfj2" class="medial"/>
             <geom class="medial_visual"/>
             <geom class="medial_collision"/>
-            <body name="mf_distal" pos="0 0 0.0384">
+            <body name="mf_distal" pos="0 0 0.0384" gravcomp="1">
               <joint name="mfj3" class="distal"/>
               <geom class="distal_visual"/>
               <geom class="distal_collision"/>
-              <body name="mf_tip">
+              <body name="mf_tip" gravcomp="1">
                 <geom class="fingertip_visual"/>
                 <geom class="fingertip_collision"/>
               </body>
@@ -179,23 +179,23 @@
         </body>
       </body>
       <!-- Ring finger -->
-      <body name="rf_base" pos="0 -0.0435 -0.001542" quat="0.999048 0.0436194 0 0">
+      <body name="rf_base" pos="0 -0.0435 -0.001542" quat="0.999048 0.0436194 0 0" gravcomp="1">
         <joint name="rfj0" class="base"/>
         <geom class="base_visual"/>
         <geom class="base_collision"/>
-        <body name="rf_proximal" pos="0 0 0.0164">
+        <body name="rf_proximal" pos="0 0 0.0164" gravcomp="1">
           <joint name="rfj1" class="proximal"/>
           <geom class="proximal_visual"/>
           <geom class="proximal_collision"/>
-          <body name="rf_medial" pos="0 0 0.054">
+          <body name="rf_medial" pos="0 0 0.054" gravcomp="1">
             <joint name="rfj2" class="medial"/>
             <geom class="medial_visual"/>
             <geom class="medial_collision"/>
-            <body name="rf_distal" pos="0 0 0.0384">
+            <body name="rf_distal" pos="0 0 0.0384" gravcomp="1">
               <joint name="rfj3" class="distal"/>
               <geom class="distal_visual"/>
               <geom class="distal_collision"/>
-              <body name="rf_tip">
+              <body name="rf_tip" gravcomp="1">
                 <geom class="fingertip_visual"/>
                 <geom class="fingertip_collision"/>
               </body>
@@ -204,23 +204,23 @@
         </body>
       </body>
       <!-- Thumb -->
-      <body name="th_base" pos="-0.0182 0.019333 -0.045987" quat="0.477714 -0.521334 -0.521334 -0.477714">
+      <body name="th_base" pos="-0.0182 0.019333 -0.045987" quat="0.477714 -0.521334 -0.521334 -0.477714" gravcomp="1">
         <joint name="thj0" class="thumb_base"/>
         <geom class="visual" mesh="link_12.0_right"/>
         <geom class="thumb_base_collision"/>
-        <body name="th_proximal" pos="-0.027 0.005 0.0399">
+        <body name="th_proximal" pos="-0.027 0.005 0.0399" gravcomp="1">
           <joint name="thj1" class="thumb_proximal"/>
           <geom class="visual" mesh="link_13.0"/>
           <geom class="thumb_proximal_collision"/>
-          <body name="th_medial" pos="0 0 0.0177">
+          <body name="th_medial" pos="0 0 0.0177" gravcomp="1">
             <joint name="thj2" class="thumb_medial"/>
             <geom class="visual" mesh="link_14.0"/>
             <geom class="thumb_medial_collision"/>
-            <body name="th_distal" pos="0 0 0.0514">
+            <body name="th_distal" pos="0 0 0.0514" gravcomp="1">
               <joint name="thj3" class="thumb_distal"/>
               <geom class="visual" mesh="link_15.0"/>
               <geom class="thumb_distal_collision"/>
-              <body name="th_tip">
+              <body name="th_tip" gravcomp="1">
                 <geom class="thumbtip_visual"/>
                 <geom class="thumbtip_collision"/>
               </body>

@@ -17,20 +17,5 @@
   <worldbody>
     <light pos="0 0 1.5" directional="true"/>
     <geom name="floor" size="1 1 0.01" type="plane" material="grid"/>
-    <body name="target" pos="0.5 0 .5" quat="0 1 0 0" mocap="true">
-      <geom type="box" size=".05 .05 .05" contype="0" conaffinity="0" rgba=".6 .3 .3 .2"/>
-    </body>
-
-    <body name="ball" pos="0.5 0 .3" quat="1 0 0 0" mocap="false">
-      <!--<joint name="ball_rx" axis="1 0 0" springdamper="0.2 1"/>
-      <joint name="ball_ry" axis="0 1 0" springdamper="0.2 1"/>
-      <joint name="ball_rz" axis="0 0 1" springdamper="0.2 1"/>
-      -->
-      <site name="ball_s1" pos="0 0.08 0" size="0.01 0.01 0.01"/>  <!-- Red -->
-      <site name="ball_s2" pos="0.08 0 0" size="0.01 0.01 0.01"/> <!-- Green -->
-      <site name="ball_s3" pos="0 -0.08 0" size="0.01 0.01 0.01"/>  <!-- Blue -->
-      <site name="ball_s4" pos="-0.08 0 0" size="0.01 0.01 0.01"/> <!-- White -->
-      <geom type="sphere" size=".07 .07 .07" rgba="0. .3 .3 1."/>
-    </body>
   </worldbody>
 </mujoco>

@@ -11,8 +11,10 @@ dist/
 build/
 *.egg-info/
 *.TXT
+*.mp4
 examples/arm_hand_iiwa_allegro.xml
 examples/kuka_iiwa_14_allegro/
+examples/grasp/models/assets/
 *.so
 *.pyd
 .venv/
