@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import numpy as np
 
 from mujoco import mj_saveModel, mj_saveLastXML
 from typing_extensions import Optional
@@ -10,9 +11,10 @@ from dm_control import mjcf
 from loop_rate_limiters import RateLimiter
 
 import mink
+from mink.utils import move_mocap_to_pose
 
 _HERE = Path(__file__).parent
-_ARM_XML = _HERE / "kuka_iiwa_14" / "scene.xml"
+_ARM_XML = _HERE / "kuka_iiwa_14" / "scene_target.xml"
 _HAND_XML = _HERE / "wonik_allegro" / "left_hand.xml"
 
 fingers = ["rf_tip", "mf_tip", "ff_tip", "th_tip"]
@@ -73,6 +75,16 @@ def construct_model():
 
 def save_model(model: mujoco.MjModel, path: Optional[str]=""):
     mj_saveLastXML(path if path else f"{os.path.splitext(os.path.basename(__file__))[0]}.xml", model)
+
+target_frame = 0
+def update_target(model, data):
+    global target_frame
+    target_frame += 1
+    # Robot's [ee_target]
+    delta = target_frame / 360 * np.pi
+    target_pos = (np.array([0.5, 0, 0.5]) +
+                  np.array([np.cos(delta), np.sin(delta), 0]) * 0.1)
+    move_mocap_to_pose(model, data, "target", target_pos, np.array([0, 1, 0, 0]))
 
 if __name__ == "__main__":
     model = construct_model()
@@ -137,6 +149,9 @@ if __name__ == "__main__":
 
         rate = RateLimiter(frequency=100.0, warn=False)
         while viewer.is_running():
+            # Update target
+            update_target(model, data)
+
             # Update kuka end-effector task, as [target]'s SE3
             T_wt = mink.SE3.from_mocap_name(model, data, "target")
             end_effector_task.set_target(T_wt)
@@ -180,7 +195,7 @@ if __name__ == "__main__":
             vel = mink.solve_ik(
                 configuration, tasks, rate.dt, solver, 1e-3, limits=limits
             )
-            kinematics = False
+            kinematics = True
             if kinematics:
                 configuration.integrate_inplace(vel, rate.dt)
             else:

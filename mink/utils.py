@@ -6,6 +6,28 @@ import numpy as np
 from . import constants as consts
 from .exceptions import InvalidKeyframe, InvalidMocapBody
 
+def move_mocap_to_pose(
+    model: mujoco.MjModel,
+    data: mujoco.MjData,
+    mocap_name: str,
+    frame_pos: np.ndarray,
+    frame_quat: np.ndarray,
+) -> None:
+    """Initialize mocap body pose at a desired frame.
+
+    Args:
+        model: Mujoco model.
+        data: Mujoco data.
+        mocap_name: The name of the mocap body.
+        frame_pos: The desired frame position.
+        frame_quat: The desired frame quat.
+    """
+    mocap_id = model.body(mocap_name).mocapid[0]
+    if mocap_id == -1:
+        raise InvalidMocapBody(mocap_name, model)
+
+    data.mocap_pos[mocap_id] = frame_pos
+    data.mocap_quat[mocap_id] = frame_quat
 
 def move_mocap_to_frame(
     model: mujoco.MjModel,
