@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 import os
 import copy
+
+from numpy import ndarray
 from typing_extensions import Optional
 import mediapy as media
 
@@ -169,12 +171,8 @@ def move_gripper(data: mj.MjData, gripper_base_body_spec: mj.MjsBody, pos:np.nda
   data.joint(gripper_base_body_spec.joints[0].name).qpos = np.concatenate([pos, quat])
 
 def get_global_grasp_pose(data: mj.MjData, grasp_idx: int, grasp_type: GraspType = GraspType.GRASP):
-  try:
-    obj = data.body(OBJECT_NAME)
-  except KeyError:
-    obj = None
-  obj_pose = [obj.xpos, obj.xquat] if obj else [[0, 0, 0], [1, 0, 0, 0]]
-  #obj_pose = [[0, 0, 0], [1, 0, 0, 0]]
+  obj = data.body(OBJECT_NAME)
+  obj_pose = [obj.xpos, obj.xquat]
   local_grasp = LOCAL_GRASPS[grasp_idx].get_pose(grasp_type)
   global_grasp_pos = np.empty(3)
   global_grasp_quat = np.empty(4)
@@ -307,7 +305,7 @@ def rollout(top_model: mj.MjModel, top_data: mj.MjData, nstep: int,
 
   # Start rollout
   start_rollout = time.time()
-  print("Start rollout... - Multimodels:", use_multi_models, "- Use Rollout class:", use_rollout_class,
+  print("- Start rollout... - Multimodels:", use_multi_models, "- Use Rollout class:", use_rollout_class,
         "- Skip checks:", skip_checks)
   if use_rollout_class:
     with mj_rollout.Rollout(nthread=CPU_NTHREAD) as rollout_instance:
@@ -330,7 +328,7 @@ def rollout(top_model: mj.MjModel, top_data: mj.MjData, nstep: int,
     mj_rollout.shutdown_persistent_pool()
 
   end_rollout = time.time()
-  print(f'Rollout time {end_rollout-start_rollout:.1f} seconds')
+  print(f'- Rollout time {end_rollout-start_rollout:.1f} seconds')
   return models, datas, state, sensordata
 
 def render(models: list[mj.MjModel], data: mj.MjData, state, sensordata, output_video: bool):
@@ -385,15 +383,19 @@ def render(models: list[mj.MjModel], data: mj.MjData, state, sensordata, output_
   end_render = time.time()
   print(f'Rendering time {end_render-start_render:.1f} seconds')
 
-def grasps_rollout(model: mj.MjModel, data: mj.MjData, nstep: int,
+def grasps_rollout(model: mj.MjModel, data: mj.MjData,
+                   grasp_type: GraspType,
+                   sample_range: tuple[int, int],
+                   nstep: int,
                    use_rollout_class: bool = False,
                    reuse_thread_pools: bool = True):
-  nsample = 100 #len(LOCAL_GRASPS)
+  nsample = sample_range[1] - sample_range[0]
+  assert 0 < nsample < len(LOCAL_GRASPS)
 
   # Set the initial states, setting gripper poses
   initial_states = mj_get_states(model, data, nsample)
   for i in range(nsample):
-    gripper_pose = get_global_grasp_pose(data, i)
+    gripper_pose = get_global_grasp_pose(data, grasp_idx=sample_range[0] + i, grasp_type=grasp_type)
 
     # Note: For [mjSTATE_FULLPHYSICS] => first state is time, so qpos starting from index 1
     # Also, to make it easy, make sure gripper is the first body with free joint after [worldbody]
@@ -401,10 +403,52 @@ def grasps_rollout(model: mj.MjModel, data: mj.MjData, nstep: int,
     initial_states[i, 1:8] = np.concatenate([gripper_pose[0], gripper_pose[1]])
 
   # Rollout
+  print(f"[{grasp_type.name}] rollout - grasp indexes: [{sample_range[0]}, {sample_range[1]-1}]")
   return rollout(model, data, nstep, nsample,
                  initial_states=initial_states,
                  use_multi_models=True, use_rollout_class=use_rollout_class,
                  reuse_thread_pools=reuse_thread_pools)
+
+def grasps_full_rollout() -> Optional[tuple[list[ndarray], list[ndarray], list[ndarray]]]:
+  def grasp_type_rollout(grasp_type: GraspType) -> Optional[list[np.ndarray]]:
+    SAMPLE_INTERVAL = 100
+    for idx in range(int(len(LOCAL_GRASPS) / SAMPLE_INTERVAL)):
+      # NOTE: Before rollout, this sets the initial states on each of [gdatas],
+      # effectively moving gripper to a candidate grasp pose
+      gmodels, gdatas, gstate, gsensordata = grasps_rollout(main_model, main_data,
+                                                            grasp_type=grasp_type,
+                                                            sample_range=(idx * SAMPLE_INTERVAL,
+                                                                          (idx + 1) * SAMPLE_INTERVAL),
+                                                            nstep=10)
+
+      # Render [models] with aggregated batch [state] on [gdatas[0]]
+      visualize_rollout_results = False
+      if visualize_rollout_results:
+        render(gmodels, gdatas[0], gstate, gsensordata, output_video=not in_notebook())
+
+      # Fetch collision-free grasp pos
+      non_collision_grasp_pose = None
+      for data_idx, data in enumerate(gdatas):
+        gripper = data.body(GRIPPER_BASE_NAME)
+        colliding, dist = mj_check_body_tree_overlapping(main_model, data, gripper_spec)
+        if not colliding:
+          non_collision_grasp_pose = [np.array(gripper.xpos), np.array(gripper.xquat)]
+          print(f"- Grasp idx[{idx * SAMPLE_INTERVAL+data_idx}]: Found collision-free {grasp_type.name} pose:",
+                gripper.xpos, gripper.xquat)
+          break
+
+      if non_collision_grasp_pose:
+        return non_collision_grasp_pose
+    return None
+
+  # Global collision-free gripper pose
+  free_pre = grasp_type_rollout(GraspType.PRE_GRASP)
+  if free_pre:
+    free = grasp_type_rollout(GraspType.GRASP)
+    if free:
+      free_post = grasp_type_rollout(GraspType.POST_GRASP)
+      return free_pre, free, free_post
+  return None
 
 if __name__ == "__main__":
   if VISUALIZE_SCENE:
@@ -421,21 +465,44 @@ if __name__ == "__main__":
     # Rollout [main_model, main_data] physiscally
     # Step num: just need to be large enough for cluttered scene to settle
     nstep = int(8 / main_model.opt.timestep) if CLUTTERED_SCENE_PHYSICS_ENABLED else 5
+    print("Prepare the physics scene - Cluttered:", CLUTTERED_SCENE_PHYSICS_ENABLED)
     rollout(main_model, main_data, nstep, use_multi_models=False)
 
     # Rollout on multi-LOCAL_GRASPS with collision check
     # NOTE: Technically, only need one step for collision check between gripper and env, but take 10 for rendering frames
-    gmodels, gdatas, gstate, gsensordata = grasps_rollout(main_model, main_data, nstep=10)
+    free_pre_pose, free_pose, free_post_pose = grasps_full_rollout()
 
-    # Print gripper poses that collide with any object in the scene
-    for data in gdatas:
-      colliding, dist = mj_check_body_tree_overlapping(main_model, data, gripper_spec)
-      if colliding:
-        gripper = data.body(GRIPPER_BASE_NAME)
-        print(f"Gripper collides at pose:", gripper.xpos, gripper.xquat)
+    # Visualize gripper at free grasp
+    with mj_viewer.launch_passive(model=main_model, data=main_data, show_left_ui=False, show_right_ui=False) as viewer:
+      mj.mjv_defaultFreeCamera(main_model, viewer.cam)
+      mj_reset_to_home(main_model, main_data)
 
-    # Render [models] with aggregated batch [state] on [datas[0]]
-    render = False
-    if render:
-      render(gmodels, gdatas[0], gstate, gsensordata, output_video=not in_notebook())
+      # Init
+      init_viewer_option(main_data, viewer)
+      init_scene_visuals(main_data, viewer.user_scn)
+
+      # Viewer loop
+      rate = RateLimiter(frequency=100.0, warn=False)
+      free_poses = [free_pre_pose, free_pose, free_post_pose]
+      pose_idx = 0
+      while viewer.is_running():
+        mj.mj_camlight(main_model, main_data)
+
+        # Step [model, data]
+        mj.mj_step(main_model, main_data)
+
+        # Show gripper at free grasp
+        if pose_idx == len(free_poses):
+          pose_idx= 0
+        free_grasp = free_poses[pose_idx]
+        move_gripper(main_data, gripper_spec, free_grasp[0], free_grasp[1])
+        pose_idx += 1
+
+        # Custom modify scene (Eg: drawing any debug graphics)
+        modify_viewer_option(main_data, viewer)
+        modify_scene_visuals(main_data, viewer.user_scn)
+
+        # Visualize at fixed FPS.
+        viewer.sync()
+        rate.sleep()
     #return [reward(model, data) for data in top_datas]
