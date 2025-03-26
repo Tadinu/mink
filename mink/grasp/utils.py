@@ -19,6 +19,9 @@ def in_notebook() -> bool:
     return False
   return True
 
+def obstacle_name(i: int) -> str:
+  return f"obst_{i}"
+
 def euler_from_quaternion(quat: np.ndarray) -> np.ndarray:
   from scipy.spatial.transform import Rotation
   # Convert to Euler angles (roll, pitch, yaw)
@@ -100,14 +103,20 @@ def mj_reset_to_home(model: mj.MjModel, data: mj.MjData, home_name: str = "home"
 def mj_geom_body(model: mj.MjModel, data: mj.MjData, geom_id: int) : # -> mj.MjDataBodyViews
   return data.body(model.geom_bodyid[geom_id])
 
+def mj_body_tree_body_names(base_body_spec: mj.MjsBody) -> list[str]:
+  names = [base_body_spec.name]
+  for child_body in base_body_spec.bodies:
+    names += mj_body_tree_body_names(child_body)
+  return names
+
 def mj_body_geom_ids(model: mj.MjModel, body_name: str) -> list[int]:
   #print(body_name)
   body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
   return [i for i, b_id in enumerate(model.geom_bodyid) if b_id == body_id]
 
-def mj_body_tree_geom_ids(model: mj.MjModel, body_spec: mj.MjsBody) -> list[int]:
-  res = mj_body_geom_ids(model, body_spec.name)
-  for child_body_spec in body_spec.bodies:
+def mj_body_tree_geom_ids(model: mj.MjModel, base_body_spec: mj.MjsBody) -> list[int]:
+  res = mj_body_geom_ids(model, base_body_spec.name)
+  for child_body_spec in base_body_spec.bodies:
     res += mj_body_tree_geom_ids(model, child_body_spec)
   return res
 
@@ -148,7 +157,6 @@ def mj_check_body_tree_overlapping(model: mj.MjModel, data: mj.MjData, base_body
                                    threshold: float = 0.01) -> tuple[bool, float]:
   fromto = np.zeros(6)
   geom_ids = mj_body_tree_geom_ids(model, base_body_spec)
-  min_dist = np.inf
   other_geom_ids = np.setdiff1d(np.arange(model.ngeom), geom_ids).tolist()
   for geom_id in geom_ids:
     for other_geom_id in other_geom_ids:
@@ -293,7 +301,8 @@ def mj_render_many(model: Union[mj.MjModel, list[mj.MjModel]],
 
 ## POINTCLOUD --
 ##
-def load_pointcloud(filepath: str, normal_as_quat: bool = True) -> list[list[np.ndarray]]:
+PclPoint = list[np.ndarray]
+def load_pointcloud(filepath: str, normal_as_quat: bool = True) -> list[PclPoint]:
   points = []
   with open(filepath, 'r') as file:
     i = 0
@@ -319,10 +328,10 @@ def generate_pointcloud(mesh_path: str, out_txt_path: str, scale: float = 1.0):
   assert o3d.io.write_point_cloud(out_pcd_path, pcd, write_ascii=True, print_progress=True)
   os.rename(out_pcd_path, out_txt_path)
 
-def recenter_pointcloud(pointcloud: list[list[np.ndarray]], out_txt_path: Optional[str] = None):
+def recenter_pointcloud(pointcloud: list[PclPoint], out_txt_path: Optional[str] = None):
   pcd = o3d.geometry.PointCloud()
-  pcd.points = o3d.utility.Vector3dVector([data[0] for data in pointcloud])
-  pcd.normals = o3d.utility.Vector3dVector([data[1] for data in pointcloud])
+  pcd.points = o3d.utility.Vector3dVector([point[0] for point in pointcloud])
+  pcd.normals = o3d.utility.Vector3dVector([point[1] for point in pointcloud])
   pcd.translate(translation=[0, 0, 0], relative=False)
   print(f"Center of pcd: {pcd.get_center()}")
   if out_txt_path:
@@ -330,15 +339,16 @@ def recenter_pointcloud(pointcloud: list[list[np.ndarray]], out_txt_path: Option
     assert o3d.io.write_point_cloud(out_pcd_path, pcd, write_ascii=True, print_progress=True)
     os.rename(out_pcd_path, out_txt_path)
 
-def show_pointcloud(pointcloud: list[list[np.ndarray]]):
+def show_pointcloud(pointcloud: list[PclPoint]):
   pcd = o3d.geometry.PointCloud()
-  pcd.points = o3d.utility.Vector3dVector([data[0] for data in pointcloud])
-  pcd.normals = o3d.utility.Vector3dVector([data[1] for data in pointcloud])
+  pcd.points = o3d.utility.Vector3dVector([point[0] for point in pointcloud])
+  pcd.normals = o3d.utility.Vector3dVector([point[1] for point in pointcloud])
   pcd.colors = o3d.utility.Vector3dVector(len(pointcloud) * [np.random.rand(3)])
   o3d.visualization.draw(pcd)
 
 ## GRASPS --
 ##
+GraspPose = list[np.ndarray]
 class GraspType(Enum):
   PRE_GRASP = 1
   GRASP = 2
@@ -347,14 +357,14 @@ class GraspType(Enum):
 @dataclass(frozen=False)
 class LocalGrasp:
   # NOTE: These poses are relative to point cloud originally and to a target object upon recalculation
-  pre_pose: list[np.ndarray] # Preparation pose before going to [pose]
-  pose: list[np.ndarray] # Grasp pose whereby gripper fingers engage with a target object
-  post_pose: list[np.ndarray] # Post pose
+  pre_pose: GraspPose # Preparation pose before going to [pose]
+  pose: GraspPose # Grasp pose whereby gripper fingers engage with a target object
+  post_pose: GraspPose # Post pose
   probability: float
   gripper_closed_width: float
   gripper_open_width: float
 
-  def get_pose(self, grasp_type: GraspType) -> Optional[list[np.ndarray]]:
+  def get_pose(self, grasp_type: GraspType) -> Optional[GraspPose]:
     if grasp_type == GraspType.PRE_GRASP:
       return self.pre_pose
     elif grasp_type == GraspType.GRASP:
@@ -403,13 +413,22 @@ def load_grasps(filepath: str, post_processing: bool, token: str = "|") -> list[
         data = [float(num) for num in grasp_segment.split()]
         pos = np.array(data[:3])
         quat = np.array(data[3:])
-
+        new_pos = pos.copy()
+        new_quat = quat.copy()
         if post_processing:
-          # GraspLoCoMo gripper_base model has fingers pointing toward -X, thus need to rotate its grasp around Y -90 here
+          # GraspLoCoMo gripper_base model has:
+          # - Fingers pointing toward -X, thus need to rotate its grasp around Y -90 deg
+          # - Center being offset by -0.0465 along X, so need to shift its grasp along X 0.0465
           delta_quat_Y = np.empty(4)
           mj.mju_axisAngle2Quat(delta_quat_Y, [0, 1, 0], -90)
-          mj.mju_mulQuat(quat, quat, delta_quat_Y)
-        return [pos, quat]
+
+          delta_pos_X = 0.0465
+          mj.mju_mulPose(new_pos, new_quat,
+                         pos, quat,
+                         np.array([delta_pos_X, 0, 0]), delta_quat_Y)
+
+          # GraspLoco
+        return [new_pos, new_quat]
       output_grasps.append(LocalGrasp(pre_pose = read_pose(pre_grasp),
                                       pose = read_pose(grasp),
                                       post_pose=read_pose(post_grasp),
