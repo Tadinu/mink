@@ -418,10 +418,9 @@ def load_grasps(filepath: str, post_processing: bool, token: str = "|") -> list[
         if post_processing:
           # GraspLoCoMo gripper_base model has:
           # - Fingers pointing toward -X, thus need to rotate its grasp around Y -90 deg
-          # - Center being offset by -0.0465 along X, so need to shift its grasp along X 0.0465
+          # - Center being offset by -0.0465 along X, so need to shift its grasp along Z 0.0465
           delta_quat_Y = np.empty(4)
           mj.mju_axisAngle2Quat(delta_quat_Y, [0, 1, 0], -90)
-
           delta_pos_X = 0.0465
           mj.mju_mulPose(new_pos, new_quat,
                          pos, quat,
