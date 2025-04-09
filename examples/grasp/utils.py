@@ -125,12 +125,11 @@ def mj_add_mocap_body(model_spec: mj.MjSpec, target_body: mj.MjsBody, mocap_name
                       mocap_size: Optional[np.ndarray] = None):
   if mocap_size is None:
       mocap_size = ([0.05, 0.05, 0.05])
-  mocap = model_spec.worldbody.add_body(name=mocap_name, mocap=True,
-                                       pos=target_body.pos, quat=target_body.quat)
+  mocap = model_spec.worldbody.add_body(name=mocap_name, mocap=True)
   mocap.add_geom(type=mocap_geom_type, size=mocap_size, rgba=[0, 1, 0, 0.2],
                  contype=0, conaffinity=0)
   model_spec.add_equality(name="eq1", objtype=mj.mjtObj.mjOBJ_BODY, type=mj.mjtEq.mjEQ_WELD,
-                         name1=mocap_name, name2=target_body.name)
+                          name1=mocap_name, name2=target_body.name)
 
 def mj_get_mocap_id(model: mj.MjModel, mocap_body_name: str):
   if False:

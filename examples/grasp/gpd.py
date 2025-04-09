@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import os
 import time
 import copy
 
-from numpy import ndarray
-from typing_extensions import Optional, Callable
+from typing_extensions import Optional
 import mediapy as media
 
 from multiprocessing import cpu_count
@@ -14,7 +12,7 @@ CPU_NTHREAD = cpu_count()
 
 import mujoco as mj
 import mujoco.viewer as mj_viewer
-from mujoco import rollout as mj_rollout, mjtObj
+from mujoco import rollout as mj_rollout
 from mujoco import mjx # Required: pip install --upgrade mujoco-mjx "jax[cuda]"
 import numpy as np
 from loop_rate_limiters import RateLimiter
@@ -25,12 +23,14 @@ import os
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"] = "false"
 #os.environ["XLA_PYTHON_CLIENT_MEM_FRACTION"]= ".90"
 
-from mink.grasp.utils import (in_notebook, obstacle_name, random_rgba, random_spawn_pose,
-                              load_pointcloud, show_pointcloud, recenter_pointcloud, generate_pointcloud,
-                              GraspType, GraspPose, LocalGrasp, load_grasps, write_out_grasps,
-                              mj_reset_to_home, mj_get_states, mj_save_model_spec, mj_render_many,
-                              mj_body_tree_body_names, mj_add_mocap_body, mj_move_mocap,
-                              mj_set_body_tree_collision_enabled, mj_check_body_tree_overlapping)
+from examples.grasp.utils import (in_notebook, obstacle_name, random_rgba, random_spawn_pose,
+                                  load_pointcloud, show_pointcloud, recenter_pointcloud, generate_pointcloud,
+                                  GraspType, GraspPose, LocalGrasp, load_grasps, write_out_grasps,
+                                  mj_reset_to_home, mj_get_states, mj_save_model_spec, mj_render_many,
+                                  mj_body_tree_body_names, mj_add_mocap_body, mj_move_mocap,
+                                  mj_set_body_tree_collision_enabled, mj_check_body_tree_overlapping)
+
+from examples.arm_hand_ur_robotiq import Ur10eRobotiq2f85DiffIK, Ur10eRobotiq2f85
 
 # More legible printing from numpy
 np.set_printoptions(precision=3, suppress=True, linewidth=100)
@@ -43,14 +43,14 @@ CLUTTERED_SCENE_PHYSICS_ENABLED = True
 CLUTTERED_SCENE_OBSTACLES_NUM = 100
 
 ## MODEL
-#MJ_GRASP_DIR="/home/tad/1_MUJOCO/MJ_GRASP"
-MJ_GRASP_DIR="/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/MUJOCO/MJ_GRASP"
+MJ_GRASP_DIR="/home/tad/1_MUJOCO/MJ_GRASP"
+#MJ_GRASP_DIR="/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/MUJOCO/MJ_GRASP"
 GRASP_LOCOMO_DIR=f"{MJ_GRASP_DIR}/grasplocomo"
 MODELS_DIR = f"{MJ_GRASP_DIR}/Models"
-MAIN_XML_PATH = f"{MODELS_DIR}/schunk/scene.xml"
+main_spec: mj.MjSpec = None
 
 ## OBJECT
-DEFAULT_OBJECT_TYPE = "mj_mug"
+DEFAULT_OBJECT_TYPE = "hammer"
 OBJECT_MESH_FILEPATH = "" #f"{MODELS_DIR}/mj_mug.obj"
 OBJECT_TYPE = os.path.splitext(os.path.basename(OBJECT_MESH_FILEPATH))[0] if OBJECT_MESH_FILEPATH else DEFAULT_OBJECT_TYPE
 OBJECT_NAME = f"GraspObject_{OBJECT_TYPE}"
@@ -60,12 +60,32 @@ last_object_pose: np.ndarray = np.empty(7)
 last_object_displacement_check_time = time.time()
 OBJECT_DISPLACEMENT_CHECK_TIME_INVERVAL = 5 # sec
 
+## ARM
+# [UR10]
+UR10E_NAME = "ur10e"
+UR10E_MODEL_DIR = f"{MODELS_DIR}/universal_robots_ur10e"
+UR10E_XML_PATH = f"{UR10E_MODEL_DIR}/{UR10E_NAME}.xml"
+
+# [MAIN ARM]
+ARM_NAME = UR10E_NAME
+ARM_MODEL_DIR = UR10E_MODEL_DIR
+ARM_SCENE_XML_PATH = f"{ARM_MODEL_DIR}/scene.xml"
+ARM_ATTACH_PREFIX = ARM_NAME
+
 ## GRIPPER
-SCHUNK_PG70_XML_PATH = f"{MODELS_DIR}/schunk/schunk_pg70.xml"
-SCHUNK_PG70_NAME = os.path.splitext(os.path.basename(SCHUNK_PG70_XML_PATH))[0]
-GRIPPER_XML_PATH = SCHUNK_PG70_XML_PATH
-GRIPPER_XML_DIRNAME = os.path.dirname(GRIPPER_XML_PATH)
-GRIPPER_NAME = SCHUNK_PG70_NAME
+# [SCHUNK_PG70]
+SCHUNK_PG70_NAME = "schunk_pg70"
+SCHUNK_PG70_MODEL_DIR = f"{MODELS_DIR}/schunk"
+
+# [ROBOTIQ_2F85]
+ROBOTIQ_2F85_NAME = "robotiq_2f85"
+ROBOTIQ_2F85_MODEL_DIR = f"{MODELS_DIR}/{ROBOTIQ_2F85_NAME}"
+
+# [MAIN GRIPPER]
+GRIPPER_NAME = ROBOTIQ_2F85_NAME
+GRIPPER_MODEL_DIR = ROBOTIQ_2F85_MODEL_DIR
+GRIPPER_SCENE_XML_PATH = f"{GRIPPER_MODEL_DIR}/scene.xml"
+GRIPPER_XML_PATH = f"{GRIPPER_MODEL_DIR}/{GRIPPER_NAME}.xml"
 GRIPPER_BASE_NAME = f"{GRIPPER_NAME}_base"
 
 ## DATA PREPARATION --
@@ -121,50 +141,100 @@ GRASP_BATCH_STEPS_NUM = 10 if GRASP_BATCH_ROLLOUT_VISUALIZED else 1
 def mjx_rollout_cache_name(model_name: str, nbatch: int, nstep:int):
   return f"{model_name}_{nbatch}_{nstep}"
 
-## [CONSTRUCT MODEL]
-def construct_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj.MjsBody]:
-  # https://github.com/google-deepmind/mujoco/blob/main/python/mjspec.ipynb
-  # https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/specs_test.py
-  # https://mujoco.readthedocs.io/en/stable/APIreference/APItypes.html#mjspec
-  main_spec = mj.MjSpec.from_file(MAIN_XML_PATH)
-  if main_spec is None:
-    print("Error: Main spec is failed being loaded from", MAIN_XML_PATH)
-    main_spec = mj.MjSpec()
-  #print(main_spec.modelname)
-  main_spec.modelname = "GPD"
-  #main_spec.option.timestep = 0.01
-  #main_spec.option.gravity = [0,0,0]
-  main_spec.option.solver = mj.mjtSolver.mjSOL_CG
+## [CONSTRUCT MODELS]
+# https://github.com/google-deepmind/mujoco/blob/main/python/mjspec.ipynb
+# https://github.com/google-deepmind/mujoco/blob/main/python/mujoco/specs_test.py
+# https://mujoco.readthedocs.io/en/stable/APIreference/APItypes.html#mjspec
+def construct_arm_gripper_model(save_to_xml: bool = False) -> tuple[mj.MjModel, mj.MjSpec, Ur10eRobotiq2f85DiffIK]:
+  # Robot System
+  system = Ur10eRobotiq2f85DiffIK(arm_scene_xml=ARM_SCENE_XML_PATH, hand_xml=GRIPPER_XML_PATH)
+  system_spec = system.construct_robot_system_spec()
+  # save_model_spec(ur10e_robotiq_2f85_spec)
+  # print(system_spec.modelname)
+  system_spec.modelname = f"{ARM_NAME}_{GRIPPER_NAME}_GPD"
+  # system_spec.option.timestep = 0.01
+  # system_spec.option.gravity = [0,0,0]
+  system_spec.option.solver = mj.mjtSolver.mjSOL_CG
   if GRASP_MJX_ROLLOUT_ENABLED:
-    main_spec.option.disableflags |= mj.mjtDisableBit.mjDSBL_EULERDAMP
-    #main_spec.option.iterations = 5
-    #main_spec.option.ls_iterations = 8
-    main_spec.option.iterations = 6
-    main_spec.option.ls_iterations = 6
+    system_spec.option.disableflags |= mj.mjtDisableBit.mjDSBL_EULERDAMP
+    # system_spec.option.iterations = 5
+    # system_spec.option.ls_iterations = 8
+    system_spec.option.iterations = 6
+    system_spec.option.ls_iterations = 6
   else:
     # Not supported by [mjx] yet
-    main_spec.option.enableflags |= mj.mjtEnableBit.mjENBL_MULTICCD
-    main_spec.option.ccd_tolerance = 1e-6
-    main_spec.option.ccd_iterations = 50
+    system_spec.option.enableflags |= mj.mjtEnableBit.mjENBL_MULTICCD
+    system_spec.option.ccd_tolerance = 1e-6
+    system_spec.option.ccd_iterations = 50
 
-  worldbody = main_spec.worldbody
-  #BODIES_NAMES = [body.name for body in main_spec.bodies]
+  system_worldbody = system_spec.worldbody
+  # BODIES_NAMES = [body.name for body in system_spec.bodies]
   # [ENV]
-  main_spec.lights[0].pos[2] = 2
+  system_spec.lights[0].pos[2] = 2
   WALL_SIZE = [.5, .5, .05]
-  worldbody.add_geom(name="plane+x", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[1, 0, 0], pos=[-0.5, 0, -0.25],
-                     contype=1, conaffinity=1)
-  worldbody.add_geom(name="plane-x", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[-1, 0, 0], pos=[0.5, 0, -0.25],
-                     contype=1, conaffinity=1)
-  worldbody.add_geom(name="plane+y", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[0, 1, 0], pos=[0, -0.5, -0.25],
-                     contype=1, conaffinity=1)
-  worldbody.add_geom(name="plane-y", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[0, -1, 0], pos=[0, 0.5, -0.25],
-                     contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane+x", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[1, 0, 0],
+                            pos=[-0.5, 0, -0.25],
+                            contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane-x", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[-1, 0, 0],
+                            pos=[0.5, 0, -0.25],
+                            contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane+y", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[0, 1, 0],
+                            pos=[0, -0.5, -0.25],
+                            contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane-y", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[0, -1, 0],
+                            pos=[0, 0.5, -0.25],
+                            contype=1, conaffinity=1)
+
+  # 1- [ARM]
+  for arm_body in system_spec.bodies:
+    arm_body.gravcomp = 1
+  # arm_base_spec = system_spec.bodies[1]  # Idx 0 is worldbody
+
+  # 2- Setup system, compiling [MjModel], creating [MjData]
+  system.ur10e_robotiq_2f85 = Ur10eRobotiq2f85()
+  system.ur10e_robotiq_2f85.setup(model=system_spec.compile())
+  return system.ur10e_robotiq_2f85.model, system_spec, system
+
+def construct_gripper_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj.MjsBody]:
+  system_spec = mj.MjSpec.from_file(GRIPPER_SCENE_XML_PATH)
+  if system_spec is None:
+    print("Error: Main spec is failed being loaded from", GRIPPER_SCENE_XML_PATH)
+    system_spec = mj.MjSpec()
+  #print(system_spec.modelname)
+  system_spec.modelname = f"{GRIPPER_NAME}_GPD"
+  #system_spec.option.timestep = 0.01
+  #system_spec.option.gravity = [0,0,0]
+  system_spec.option.solver = mj.mjtSolver.mjSOL_CG
+  if GRASP_MJX_ROLLOUT_ENABLED:
+    system_spec.option.disableflags |= mj.mjtDisableBit.mjDSBL_EULERDAMP
+    #system_spec.option.iterations = 5
+    #system_spec.option.ls_iterations = 8
+    system_spec.option.iterations = 6
+    system_spec.option.ls_iterations = 6
+  else:
+    # Not supported by [mjx] yet
+    system_spec.option.enableflags |= mj.mjtEnableBit.mjENBL_MULTICCD
+    system_spec.option.ccd_tolerance = 1e-6
+    system_spec.option.ccd_iterations = 50
+
+  system_worldbody = system_spec.worldbody
+  #BODIES_NAMES = [body.name for body in system_spec.bodies]
+  # [ENV]
+  system_spec.lights[0].pos[2] = 2
+  WALL_SIZE = [.5, .5, .05]
+  system_worldbody.add_geom(name="plane+x", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[1, 0, 0], pos=[-0.5, 0, -0.25],
+                            contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane-x", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[-1, 0, 0], pos=[0.5, 0, -0.25],
+                            contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane+y", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[0, 1, 0], pos=[0, -0.5, -0.25],
+                            contype=1, conaffinity=1)
+  system_worldbody.add_geom(name="plane-y", type=mj.mjtGeom.mjGEOM_PLANE, size=WALL_SIZE, zaxis=[0, -1, 0], pos=[0, 0.5, -0.25],
+                            contype=1, conaffinity=1)
 
   # 1- [GRIPPER]
-  for gripper_body in main_spec.bodies:
+  for gripper_body in system_spec.bodies:
     gripper_body.gravcomp = 1
-  gripper_base_spec = main_spec.bodies[1] # Idx 0 is worldbody
+  gripper_base_spec = system_spec.bodies[1] # Idx 0 is worldbody
   gripper_base_spec.name = GRIPPER_BASE_NAME
   gripper_base_spec.pos[2] = 0.5
   # A free joint is required to move gripper freely around the scene
@@ -175,12 +245,12 @@ def construct_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj
 
   if BLOCKDROP_MODE:
     # 1.1- [GRIPPER POS/QUAT SENSORS]
-    main_spec.add_sensor(name="gripper_pos", needstage=mj.mjtStage.mjSTAGE_POS,
-                         type=mj.mjtSensor.mjSENS_FRAMEPOS,
-                         objtype=mj.mjtObj.mjOBJ_BODY, objname=GRIPPER_BASE_NAME)
-    main_spec.add_sensor(name="gripper_quat", needstage=mj.mjtStage.mjSTAGE_POS,
-                         type=mj.mjtSensor.mjSENS_FRAMEQUAT,
-                         objtype=mj.mjtObj.mjOBJ_BODY, objname=GRIPPER_BASE_NAME)
+    system_spec.add_sensor(name="gripper_pos", needstage=mj.mjtStage.mjSTAGE_POS,
+                           type=mj.mjtSensor.mjSENS_FRAMEPOS,
+                           objtype=mj.mjtObj.mjOBJ_BODY, objname=GRIPPER_BASE_NAME)
+    system_spec.add_sensor(name="gripper_quat", needstage=mj.mjtStage.mjSTAGE_POS,
+                           type=mj.mjtSensor.mjSENS_FRAMEQUAT,
+                           objtype=mj.mjtObj.mjOBJ_BODY, objname=GRIPPER_BASE_NAME)
 
     # 1.2- [GRIPPER COLLISION SENSORS]
     # https://mujoco.readthedocs.io/en/latest/XMLreference.html#collision-sensors
@@ -190,12 +260,12 @@ def construct_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj
     if not GRASP_MJX_ROLLOUT_ENABLED: # [mjSENS_GEOMDIST] is not supported yet by [mjx]
       DIST_MAX = 0.01
       def add_gripper_dist_sensor(ref_name: str, ref_type: mj.mjtObj = mj.mjtObj.mjOBJ_BODY):
-        main_spec.add_sensor(needstage=mj.mjtStage.mjSTAGE_POS,
-                             type=mj.mjtSensor.mjSENS_GEOMDIST,
-                             datatype=mj.mjtDataType.mjDATATYPE_REAL,
-                             objtype=mj.mjtObj.mjOBJ_BODY, objname=gripper_child_body_name,
-                             reftype=ref_type, refname=ref_name,
-                             cutoff=DIST_MAX)
+        system_spec.add_sensor(needstage=mj.mjtStage.mjSTAGE_POS,
+                               type=mj.mjtSensor.mjSENS_GEOMDIST,
+                               datatype=mj.mjtDataType.mjDATATYPE_REAL,
+                               objtype=mj.mjtObj.mjOBJ_BODY, objname=gripper_child_body_name,
+                               reftype=ref_type, refname=ref_name,
+                               cutoff=DIST_MAX)
 
       for gripper_child_body_name in mj_body_tree_body_names(gripper_base_spec):
         add_gripper_dist_sensor(OBJECT_NAME)
@@ -208,13 +278,13 @@ def construct_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj
   # 2- [CLUTTERED SETTING]
   # 2.1- [TARGET OBJECT] AS A SINGLE PHYSICS-ENABLED BODY MADE FROM POINT CLOUD
   # NOTE: FIRST, OBJ MUST BE SPAWNED AT THE ORIGIN FOR [LOCAL_GRASPS] TO BE POST_PROCESSED
-  target_obj = worldbody.add_body(name=OBJECT_NAME, pos=[0, 0, 0] if SINGULAR_MODE else [0, 0, 1],
-                                  gravcomp=SINGULAR_MODE)
+  target_obj = system_worldbody.add_body(name=OBJECT_NAME, pos=[0, 0, 0] if SINGULAR_MODE else [0, 0, 1],
+                                         gravcomp=SINGULAR_MODE)
   if OBJECT_MESH_FILEPATH:
-    obj_mesh = main_spec.add_mesh()
+    obj_mesh = system_spec.add_mesh()
     obj_mesh.file = os.path.basename(OBJECT_MESH_FILEPATH)
     obj_mesh.name = os.path.splitext(obj_mesh.file)[0]
-    #main_spec.assets = {obj_mesh.file: obj_binary}
+    #system_spec.assets = {obj_mesh.file: obj_binary}
     target_obj.add_geom(type=mj.mjtGeom.mjGEOM_MESH, meshname=obj_mesh.name)
   else:
     for point in OBJECT_POINTCLOUD:
@@ -229,14 +299,14 @@ def construct_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj
   # 2.2- [OBSTACLES]
   if SINGULAR_MODE:
     # NOTE: ADD OBJECT MOCAP, OTHERWISE WITH FREE JOINT, IT JUST MOVES ENDLESSLY UPON BEING DRAGGED BY MOUSE WRENCH
-    mj_add_mocap_body(main_spec, target_obj, OBJECT_MOCAP_NAME,
+    mj_add_mocap_body(system_spec, target_obj, OBJECT_MOCAP_NAME,
                       mocap_geom_type=mj.mjtGeom.mjGEOM_BOX,
                       mocap_size=np.array([0.03] * 3))
   else:
     obst_geom_types = [mj.mjtGeom.mjGEOM_BOX, mj.mjtGeom.mjGEOM_SPHERE, mj.mjtGeom.mjGEOM_CAPSULE, mj.mjtGeom.mjGEOM_CYLINDER]
     for i in range(CLUTTERED_SCENE_OBSTACLES_NUM):
       obj_i_pose = random_spawn_pose()
-      obst_i = worldbody.add_body(name=obstacle_name(i), pos=obj_i_pose[0], quat=obj_i_pose[1])
+      obst_i = system_worldbody.add_body(name=obstacle_name(i), pos=obj_i_pose[0], quat=obj_i_pose[1])
       obst_i.add_geom(type=obst_geom_types[np.random.randint(low=0, high=len(obst_geom_types)-1)],
                       size=[0.05, 0.05, 0.05], rgba=random_rgba(),
                       contype=1, conaffinity=1)
@@ -246,10 +316,10 @@ def construct_model(save_to_xml:bool = False) -> tuple[mj.MjModel, mj.MjSpec, mj
         mj_set_body_tree_collision_enabled(obst_i, False)
 
   # COMPILE MODEL
-  main_model = main_spec.compile()
+  system_model = system_spec.compile()
   if save_to_xml:
-    mj_save_model_spec(main_spec, f"{GRIPPER_XML_DIRNAME}/{main_spec.modelname}_gpd.xml")
-  return main_model, main_spec, gripper_base_spec
+    mj_save_model_spec(system_spec, f"{GRIPPER_MODEL_DIR}/{system_spec.modelname}_gpd.xml")
+  return system_model, system_spec, gripper_base_spec
 
 def init_mjx(model: mj.MjModel, nbatch: int) -> None:
   # Generate [mjx_model, mjx_data] in GPU by placing model on the GPU device using MJX, making it into [mjx_data]
@@ -372,10 +442,10 @@ def recalculate_local_grasps(model: mj.MjModel, data: mj.MjData, gripper_base_bo
     local_grasp.recalculate(obj_body, gripper_body, grasp_type)
   write_out_grasps(LOCAL_GRASPS, out_txt_path)
 
-def run(model: mj.MjModel, data: mj.MjData,
-        gripper_base_body_spec: mj.MjsBody,
-        freq: float = 100.0,
-        recalculate_grasps: bool = False, kinematics_only: bool = False):
+def run_gripper(model: mj.MjModel, data: mj.MjData,
+                gripper_base_body_spec: mj.MjsBody,
+                freq: float = 100.0,
+                recalculate_grasps: bool = False, kinematics_only: bool = False):
   # RECALCULATE TRUE LOCAL GRASPS TO BE RELATIVE TO [TARGET_OBJ] ITSELF
   if recalculate_grasps:
     recalculate_local_grasps(model, data, gripper_base_body_spec,
@@ -639,8 +709,9 @@ def grasps_full_rollout(model: mj.MjModel, data: mj.MjData) -> Optional[tuple[Gr
       return free_pre, free, free_post
   return None
 
-if __name__ == "__main__":
-  main_model, main_spec, main_gripper_base_body_spec = construct_model()
+def run_gripper_rollout():
+  global main_spec
+  main_model, main_spec, main_gripper_base_body_spec = construct_gripper_model()
   main_data = mj.MjData(main_model)
 
   # 1- Rollout [main_model, main_data] physically for blocks to drop and settle,
@@ -659,6 +730,33 @@ if __name__ == "__main__":
     init_mjx(main_model, nbatch=GRASP_BATCH_NUM)
 
   # 2.2- Main exec loop
-  run(main_model, main_data, main_gripper_base_body_spec,
-      recalculate_grasps=is_using_original_grasps())
-    #return [reward(model, data) for data in top_datas]
+  run_gripper(main_model, main_data, main_gripper_base_body_spec,
+              recalculate_grasps=is_using_original_grasps())
+  #return [reward(model, data) for data in top_datas]
+
+def run_arm_gripper_rollout():
+  global main_spec
+  main_model, main_spec, system = construct_arm_gripper_model()
+  main_data = system.ur10e_robotiq_2f85.data
+
+  # 1- Rollout [main_model, main_data] physically for blocks to drop and settle,
+  # which is still faster than manual mj_step() x nstep
+  # NOTE: NOT USE MJX ROLLOUT HERE YET IN THIS PHASE
+  # Step num: just need to be large enough for cluttered scene to settle
+  nstep = int(8 / main_model.opt.timestep) if CLUTTERED_SCENE_PHYSICS_ENABLED else 5
+  print("Prepare the physics scene - Cluttered:", CLUTTERED_SCENE_PHYSICS_ENABLED)
+  mj_reset_to_home(main_model, main_data)
+  rollout(main_model, main_data, nstep)
+
+  # 2- Run visualized BlockDrop or Singular mode
+  if GRASP_MJX_ROLLOUT_ENABLED:
+    # 2.1- Init mjx model & data in GPU
+    init_mjx(main_model, nbatch=GRASP_BATCH_NUM)
+
+  # 2.2- Main exec loop
+  #run_arm_gripper(main_model, main_data, system,
+  #                recalculate_grasps=is_using_original_grasps())
+  # TBD
+
+if __name__ == "__main__":
+  run_gripper_rollout()
