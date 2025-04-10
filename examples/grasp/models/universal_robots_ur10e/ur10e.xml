@@ -78,7 +78,7 @@
         <geom mesh="shoulder_0" material="urblue" class="visual"/>
         <geom mesh="shoulder_1" material="black" class="visual"/>
         <geom mesh="shoulder_2" material="jointgray" class="visual"/>
-        <geom class="collision" size="0.078 0.08" pos="0 0 -0.05"/>
+        <geom name="shoulder_link" class="collision" size="0.078 0.08" pos="0 0 -0.05"/>
         <body name="upper_arm_link" pos="0 0.176 0" quat="1 0 1 0">
           <inertial pos="0 0 0.3065" mass="12.93" diaginertia="0.423074 0.423074 0.0363656"/>
           <joint name="shoulder_lift_joint" class="size4"/>
@@ -86,8 +86,8 @@
           <geom mesh="upperarm_1" material="jointgray" class="visual"/>
           <geom mesh="upperarm_2" material="urblue" class="visual"/>
           <geom mesh="upperarm_3" material="linkgray" class="visual"/>
-          <geom class="collision" pos="0 -0.05 0" quat="1 1 0 0" size="0.078 0.08"/>
-          <geom class="collision" size="0.06 0.3" pos="0 0 0.3"/>
+          <geom name="upper_arm_link_0" class="collision" pos="0 -0.05 0" quat="1 1 0 0" size="0.078 0.08"/>
+          <geom name="upper_arm_link_1" class="collision" size="0.06 0.3" pos="0 0 0.3"/>
           <body name="forearm_link" pos="0 -0.137 0.613">
             <inertial pos="0 0 0.2855" mass="3.87" diaginertia="0.11059 0.11059 0.0108844"/>
             <joint name="elbow_joint" class="size3_limited"/>
@@ -95,8 +95,8 @@
             <geom mesh="forearm_1" material="black" class="visual"/>
             <geom mesh="forearm_2" material="jointgray" class="visual"/>
             <geom mesh="forearm_3" material="linkgray" class="visual"/>
-            <geom class="collision" pos="0 0.08 0" quat="1 1 0 0" size="0.058 0.065"/>
-            <geom class="collision" size="0.043 0.28" pos="0 0 0.29"/>
+            <geom name="forearm_link_0" class="collision" pos="0 0.08 0" quat="1 1 0 0" size="0.058 0.065"/>
+            <geom name="forearm_link_1" class="collision" size="0.043 0.28" pos="0 0 0.29"/>
             <body name="wrist_1_link" pos="0 0 0.571" quat="1 0 1 0">
               <inertial pos="0 0.135 0" quat="0.5 0.5 -0.5 0.5" mass="1.96"
                 diaginertia="0.0055125 0.00510825 0.00510825"/>
@@ -104,7 +104,7 @@
               <geom mesh="wrist1_0" material="black" class="visual"/>
               <geom mesh="wrist1_1" material="urblue" class="visual"/>
               <geom mesh="wrist1_2" material="jointgray" class="visual"/>
-              <geom class="collision" pos="0 0.06 0" quat="1 1 0 0" size="0.05 0.07"/>
+              <geom name="wrist_1_link" class="collision" pos="0 0.06 0" quat="1 1 0 0" size="0.05 0.07"/>
               <body name="wrist_2_link" pos="0 0.135 0">
                 <inertial pos="0 0 0.12" quat="0.5 0.5 -0.5 0.5" mass="1.96"
                   diaginertia="0.0055125 0.00510825 0.00510825"/>
@@ -112,8 +112,8 @@
                 <geom mesh="wrist2_0" material="black" class="visual"/>
                 <geom mesh="wrist2_1" material="urblue" class="visual"/>
                 <geom mesh="wrist2_2" material="jointgray" class="visual"/>
-                <geom class="collision" size="0.046 0.065" pos="0 0 0.05"/>
-                <geom class="collision" pos="0 0.028 0.12" quat="1 1 0 0" size="0.046 0.043"/>
+                <geom name="wrist_2_link_0" class="collision" size="0.046 0.065" pos="0 0 0.05"/>
+                <geom name="wrist_2_link_1" class="collision" pos="0 0.028 0.12" quat="1 1 0 0" size="0.046 0.043"/>
                 <body name="wrist_3_link" pos="0 0 0.12">
                   <inertial pos="0 0.092 0" quat="0 1 -1 0" mass="0.202"
                     diaginertia="0.000204525 0.000144346 0.000144346"/>
@@ -139,7 +139,9 @@
     <general class="size2" name="wrist_3" joint="wrist_3_joint"/>
   </actuator>
 
+  <!--
   <keyframe>
     <key name="home" qpos="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0" ctrl="-1.5708 -1.5708 1.5708 -1.5708 -1.5708 0"/>
   </keyframe>
+  -->
 </mujoco>

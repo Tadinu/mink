@@ -37,6 +37,7 @@ class Configuration:
     def __init__(
         self,
         model: mujoco.MjModel,
+        data: Optional[mujoco.MjData] = None,
         q: Optional[np.ndarray] = None,
     ):
         """Constructor.
@@ -47,7 +48,7 @@ class Configuration:
                 initialized to the default configuration `qpos0`.
         """
         self.model = model
-        self.data = mujoco.MjData(model)
+        self.data = data if data else mujoco.MjData(model)
         self.update(q=q)
 
     def update(self, q: Optional[np.ndarray] = None, kinematics_only: bool = True) -> None:
@@ -58,7 +59,7 @@ class Configuration:
             kinematics_only: If True, only compute kinematic quantities. Else, a full mj_step is done
         """
         if q is not None:
-            self.data.qpos = q
+            self.data.qpos[:q.size] = q
         # The minimal function call required to get updated frame transforms is
         # mj_kinematics. An extra call to mj_comPos is required for updated Jacobians.
         if kinematics_only:
