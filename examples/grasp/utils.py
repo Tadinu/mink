@@ -19,6 +19,9 @@ def in_notebook() -> bool:
     return False
   return True
 
+def file_name(path: str) -> str:
+  return os.path.splitext(os.path.basename(path))[0]
+
 def obstacle_name(i: int) -> str:
   return f"obst_{i}"
 
@@ -95,10 +98,17 @@ def draw_arrow(scene: mj.MjvScene, from_, to, radius=0.03, rgba=[0.2, 0.2, 0.6, 
 
 ## MUJOCO --
 ##
+def mj_model_name(model: mj.MjModel) -> str:
+  return model.names.split(b'\x00', maxsplit=1)[0].decode('utf-8')
+
 def mj_reset_to_home(model: mj.MjModel, data: mj.MjData, home_name: str = "home"):
   key_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_KEY, home_name)
   if key_id >= 0:
     mj.mj_resetDataKeyframe(model, data, key_id)
+
+def mj_base_body_spec(spec: mj.MjSpec) -> mj.MjsBody:
+  # bodies[0] is worldbody
+  return spec.bodies[1]
 
 def mj_geom_body(model: mj.MjModel, data: mj.MjData, geom_id: int) : # -> mj.MjDataBodyViews
   return data.body(model.geom_bodyid[geom_id])
@@ -120,32 +130,42 @@ def mj_body_tree_geom_ids(model: mj.MjModel, base_body_spec: mj.MjsBody) -> list
     res += mj_body_tree_geom_ids(model, child_body_spec)
   return res
 
-def mj_add_mocap_body(model_spec: mj.MjSpec, target_body: mj.MjsBody, mocap_name: str,
+def mj_teleport_body(data: mj.MjData, body_spec: mj.MjsBody, pose: np.ndarray):
+  data.joint(body_spec.joints[0].name).qpos = pose
+
+def mj_add_mocap_body(system_spec: mj.MjSpec, target_body_spec: mj.MjsBody, mocap_name: str,
                       mocap_geom_type: mj.mjtGeom = mj.mjtGeom.mjGEOM_BOX,
                       mocap_size: Optional[np.ndarray] = None):
   if mocap_size is None:
       mocap_size = ([0.05, 0.05, 0.05])
-  mocap = model_spec.worldbody.add_body(name=mocap_name, mocap=True)
+  # NOTE: [target_body_spec.pos/quat] is just local, so cannot be used for mocap's body pose here, which is global!
+  mocap = system_spec.worldbody.add_body(name=mocap_name, mocap=True)
   mocap.add_geom(type=mocap_geom_type, size=mocap_size, rgba=[0, 1, 0, 0.2],
                  contype=0, conaffinity=0)
-  model_spec.add_equality(name="eq1", objtype=mj.mjtObj.mjOBJ_BODY, type=mj.mjtEq.mjEQ_WELD,
-                          name1=mocap_name, name2=target_body.name)
+  # https://github.com/google-deepmind/mujoco/issues/278
+  system_spec.add_equality(name="eq1", objtype=mj.mjtObj.mjOBJ_BODY, type=mj.mjtEq.mjEQ_WELD,
+                           name1=mocap_name, name2=target_body_spec.name,
+                           solref=[0.02, 7])
 
-def mj_get_mocap_id(model: mj.MjModel, mocap_body_name: str):
+def mj_get_mocap_id(model: mj.MjModel, mocap_body_name: str) -> int:
   if False:
     return model.body(mocap_body_name).mocapid[0]
   else:
     mocap_body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, mocap_body_name)
     return model.body_mocapid[mocap_body_id] if mocap_body_id >= 0 else -1
 
+def mj_get_mocap_pose(data: mj.MjData, mocap_body_name: str) -> tuple[np.ndarray, np.ndarray]:
+  mocap_id = mj_get_mocap_id(data.model, mocap_body_name)
+  return data.mocap_pos[mocap_id], data.mocap_quat[mocap_id]
+
 def mj_move_mocap(model: mj.MjModel, data: mj.MjData, mocap_body_name: str,
-                  pos: np.ndarray, quat: Optional[np.ndarray] = None):
+                  pos: np.ndarray, quat: Optional[np.ndarray] = None) -> None:
   mocap_id = mj_get_mocap_id(model, mocap_body_name)
   data.mocap_pos[mocap_id][:3] = pos
   if quat:
     data.mocap_quat[mocap_id][:4] = quat
 
-def mj_set_body_tree_collision_enabled(base_body_spec: mj.MjsBody, enabled: bool = True):
+def mj_set_body_tree_collision_enabled(base_body_spec: mj.MjsBody, enabled: bool = True) -> None:
   for geom_spec in base_body_spec.geoms:
     geom_spec.contype = enabled
     geom_spec.conaffinity = enabled
@@ -173,7 +193,11 @@ def mj_check_body_tree_overlapping(model: mj.MjModel, data: mj.MjData, base_body
   # No collision: [mj_geomDistance()] always return [threshold]
   return False, threshold
 
-def mj_print_body_contacts(model: mj.MjModel, data: mj.MjData, base_body_spec: mj.MjsBody):
+def mj_body_qpos_adr(model: mj.MjModel, body_name: str) -> int:
+  body_id = mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, body_name)
+  return model.jnt_qposadr[model.body_jntadr[body_id]]
+
+def mj_print_body_contacts(model: mj.MjModel, data: mj.MjData, base_body_spec: mj.MjsBody) -> None:
   base_body = data.body(base_body_spec.name)
   geom_ids = mj_body_tree_geom_ids(model, base_body_spec)
   for i in range(data.ncon):
@@ -193,12 +217,17 @@ def mj_print_body_contacts(model: mj.MjModel, data: mj.MjData, base_body_spec: m
         "geom2:", mj_geom_body(model, data, contact.geom2).name, "\n",
       )
 
-def mj_save_model_spec(model_spec: mj.MjSpec, path: Optional[str] = None):
+def mj_print_all_joints_pos(model: mj.MjModel, data: mj.MjData) -> None:
+  for i in range(model.njnt):
+    name = mj.mj_id2name(model, mj.mjtObj.mjOBJ_JOINT, i)
+    print("JOINT", i, name, data.joint(i).qpos)
+
+def mj_save_system_spec(system_spec: mj.MjSpec, path: Optional[str] = None) -> None:
   # NOTE:
   # mj_saveLastXML() only works upon model that was loaded with MjModel.[from_xml() or from_xml_string()]
   # mj_saveModel() only writes to MJCB file
   with open(path if path else f"{os.path.splitext(os.path.basename(__file__))[0]}.xml", "w") as f:
-    f.writelines(model_spec.to_xml())
+    f.writelines(system_spec.to_xml())
     print("Model saved to xml:", path)
 
 def mj_normal_to_quat(normal: Union[np.ndarray, list[float]]) -> np.ndarray :
@@ -242,7 +271,7 @@ def mj_render_many(model: Union[mj.MjModel, list[mj.MjModel]],
                    data: mj.MjData,
                    state: np.ndarray, framerate: float, camera: Union[int, str, mj.MjvCamera] = -1,
                    shape: np.ndarray = (480, 640),
-                   transparent: bool=False, light_pos: Optional[np.ndarray] = None):
+                   transparent: bool=False, light_pos: Optional[np.ndarray] = None) -> None:
   nsample = state.shape[0]
 
   if not isinstance(model, mj.MjModel):
@@ -317,7 +346,7 @@ def load_pointcloud(filepath: str, normal_as_quat: bool = True) -> list[PclPoint
                           normal])
   return points
 
-def generate_pointcloud(mesh_path: str, out_txt_path: str, scale: float = 1.0):
+def generate_pointcloud(mesh_path: str, out_txt_path: str, scale: float = 1.0) -> None:
   mesh = o3d.io.read_triangle_mesh(mesh_path)
   print(f"Mesh center:{mesh.get_center()}")
   mesh.scale(scale, (0, 0, 0))
@@ -327,7 +356,7 @@ def generate_pointcloud(mesh_path: str, out_txt_path: str, scale: float = 1.0):
   assert o3d.io.write_point_cloud(out_pcd_path, pcd, write_ascii=True, print_progress=True)
   os.rename(out_pcd_path, out_txt_path)
 
-def recenter_pointcloud(pointcloud: list[PclPoint], out_txt_path: Optional[str] = None):
+def recenter_pointcloud(pointcloud: list[PclPoint], out_txt_path: Optional[str] = None) -> None:
   pcd = o3d.geometry.PointCloud()
   pcd.points = o3d.utility.Vector3dVector([point[0] for point in pointcloud])
   pcd.normals = o3d.utility.Vector3dVector([point[1] for point in pointcloud])
@@ -338,7 +367,7 @@ def recenter_pointcloud(pointcloud: list[PclPoint], out_txt_path: Optional[str] 
     assert o3d.io.write_point_cloud(out_pcd_path, pcd, write_ascii=True, print_progress=True)
     os.rename(out_pcd_path, out_txt_path)
 
-def show_pointcloud(pointcloud: list[PclPoint]):
+def show_pointcloud(pointcloud: list[PclPoint]) -> None:
   pcd = o3d.geometry.PointCloud()
   pcd.points = o3d.utility.Vector3dVector([point[0] for point in pointcloud])
   pcd.normals = o3d.utility.Vector3dVector([point[1] for point in pointcloud])
@@ -347,6 +376,7 @@ def show_pointcloud(pointcloud: list[PclPoint]):
 
 ## GRASPS --
 ##
+# NOTE: Use list instead of tuple so it can be modified in place, but note to make it always have 2 elements [pos, quat]
 GraspPose = list[np.ndarray]
 class GraspType(Enum):
   PRE_GRASP = 1
@@ -372,23 +402,18 @@ class LocalGrasp:
       return self.post_pose
     return None
 
-  def recalculate(self, target_obj_body, gripper_body, grasp_type: GraspType):
+  def recalculate(self, grasp_type: GraspType, target_obj_body, gripper_body) -> None:
     """
       RECALCULATE TRUE LOCAL GRASPS, ORIGINALLY RELATIVE TO [target_obj_body]'s POINTCLOUD (from grasplocomo),
       -> TO BECOME RELATIVE TO [target_obj_body] ITSELF
     """
-    def recalculate_grasp_pose(grasp_pose, target_obj_body, gripper_body):
-      # NOTE: Original grasp post is in [target_obj_body]'s frame, so object is transformed in World frame first then comes the gripper
-      obj_negpos = np.empty(3)
-      obj_negquat = np.empty(4)
-      mj.mju_negPose(obj_negpos, obj_negquat, target_obj_body.xpos, target_obj_body.xquat)
-      mj.mju_mulPose(grasp_pose[0], grasp_pose[1], obj_negpos, obj_negquat, gripper_body.xpos, gripper_body.xquat)
-    if grasp_type == GraspType.PRE_GRASP:
-      recalculate_grasp_pose(self.pre_pose, target_obj_body, gripper_body)
-    elif grasp_type == GraspType.GRASP:
-      recalculate_grasp_pose(self.pose, target_obj_body, gripper_body)
-    elif grasp_type == GraspType.POST_GRASP:
-      recalculate_grasp_pose(self.post_pose, target_obj_body, gripper_body)
+    grasp_pose = self.get_pose(grasp_type)
+    # NOTE: Original grasp post is in [target_obj_body]'s frame, so object is transformed in World frame first then comes the gripper
+    obj_negpos = np.empty(3)
+    obj_negquat = np.empty(4)
+    # relative_grasp = neg(target_obj) * gripper_pose
+    mj.mju_negPose(obj_negpos, obj_negquat, target_obj_body.xpos, target_obj_body.xquat)
+    mj.mju_mulPose(grasp_pose[0], grasp_pose[1], obj_negpos, obj_negquat, gripper_body.xpos, gripper_body.xquat)
 
 def load_grasps(filepath: str, post_processing: bool, token: str = "|") -> list[LocalGrasp]:
   output_grasps: list[LocalGrasp] = []
@@ -407,7 +432,7 @@ def load_grasps(filepath: str, post_processing: bool, token: str = "|") -> list[
       gripper_closed_width = float(segments[4])
       gripper_open_width = float(segments[5])
 
-      def read_pose(grasp_segment):
+      def read_pose(grasp_segment) -> list[np.ndarray]:
         # Read grasp pose
         data = [float(num) for num in grasp_segment.split()]
         pos = np.array(data[:3])
@@ -427,15 +452,15 @@ def load_grasps(filepath: str, post_processing: bool, token: str = "|") -> list[
 
           # GraspLoco
         return [new_pos, new_quat]
-      output_grasps.append(LocalGrasp(pre_pose = read_pose(pre_grasp),
-                                      pose = read_pose(grasp),
+      output_grasps.append(LocalGrasp(pre_pose=read_pose(pre_grasp),
+                                      pose=read_pose(grasp),
                                       post_pose=read_pose(post_grasp),
                                       probability=probability,
                                       gripper_closed_width=gripper_closed_width,
                                       gripper_open_width=gripper_open_width))
   return output_grasps
 
-def write_out_grasps(grasp_list: list[LocalGrasp], out_txt_path: str, token: str = "|"):
+def write_out_grasps(grasp_list: list[LocalGrasp], out_txt_path: str, token: str = "|") -> None:
   if len(grasp_list) == 0:
     print("There are no grasps to log:", out_txt_path)
     return
