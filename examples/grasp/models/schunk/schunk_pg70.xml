@@ -1,0 +1,30 @@
+<mujoco model="pg70">
+  <compiler angle="radian" meshdir="meshes"/>
+
+  <asset>
+    <mesh name="pg70" file="pg70/pg70.stl" />
+  </asset>
+
+  <worldbody>
+    <light name="top" pos="0 0 2" mode="trackcom"/>
+    <body name="pg70_palm_link">
+      <inertial pos="0 0 0" mass="1" diaginertia="0.01 0.01 0.01" />
+      <geom type="mesh" mesh="pg70" />
+      <body name="pg70_finger_left_link" pos="0 0.0055 0.0789">
+        <inertial pos="0 0 0" mass="1" diaginertia="0.01 0.01 0.01" />
+        <joint name="pg70_finger_left_joint" axis="0 1 0" type="slide" range="-0.001 0.0301" actuatorfrcrange="-10 10" />
+        <geom size="0.01 0.01 0.03" type="box" rgba="1 0 0 1" />
+      </body>
+      <body name="pg70_finger_right_link" pos="0 -0.0055 0.0789">
+        <inertial pos="0 0 0" mass="1" diaginertia="0.01 0.01 0.01" />
+        <joint name="pg70_finger_right_joint" axis="0 -1 0" type="slide" range="-0.001 0.0301" actuatorfrcrange="-10 10" />
+        <geom size="0.01 0.01 0.03" type="box" rgba="0 1 0 1" />
+      </body>
+    </body>
+  </worldbody>
+
+  <actuator>
+    <position ctrllimited="true" ctrlrange="-0.001 0.0301" joint="pg70_finger_left_joint"/>
+    <position ctrllimited="true" ctrlrange="-0.001 0.0301" joint="pg70_finger_right_joint"/>
+  </actuator>
+</mujoco>

@@ -244,9 +244,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ## MODEL
-    MJ_GRASP_DIR = "/home/tad/1_MUJOCO/MJ_GRASP"
-    # MJ_GRASP_DIR="/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/MUJOCO/MJ_GRASP"
-    MODELS_DIR = f"{MJ_GRASP_DIR}/Models"
+    _CURRENT_DIR = Path(__file__).parent.as_posix()
+    MODELS_DIR = f"{_CURRENT_DIR}/models"
 
     ## ARM
     # [UR10]

@@ -35,6 +35,8 @@ from examples.arm_hand_ur_robotiq import Ur10eRobotiq2f85DiffIK, Ur10eRobotiq2f8
 # More legible printing from numpy
 np.set_printoptions(precision=3, suppress=True, linewidth=100)
 
+_CURRENT_DIR = Path(__file__).parent.as_posix()
+
 ## SCENE
 BLOCKDROP_MODE = False
 SINGULAR_MODE = not BLOCKDROP_MODE
@@ -46,7 +48,7 @@ CLUTTERED_SCENE_OBSTACLES_NUM = 100
 MJ_GRASP_DIR="/home/tad/1_MUJOCO/MJ_GRASP"
 #MJ_GRASP_DIR="/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/MUJOCO/MJ_GRASP"
 GRASP_LOCOMO_DIR=f"{MJ_GRASP_DIR}/grasplocomo"
-MODELS_DIR = f"{MJ_GRASP_DIR}/Models"
+MODELS_DIR = f"{_CURRENT_DIR}/models"
 main_spec: mj.MjSpec = None
 
 ## OBJECT
