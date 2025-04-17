@@ -43,13 +43,13 @@ np.set_printoptions(precision=3, suppress=True, linewidth=100)
 _CURRENT_DIR = Path(__file__).parent.as_posix()
 
 ## SCENE
-BLOCKDROP_MODE = False
+BLOCKDROP_MODE = True
 SINGULAR_MODE = not BLOCKDROP_MODE
 #SINGULAR_MODE_OFFSET = np.array([0.1, 0.2, 0.5])
 SINGULAR_MODE_OFFSET = np.zeros(3)
 SCENE_GRIPPER_ONLY = True or SINGULAR_MODE
 CLUTTERED_SCENE_PHYSICS_ENABLED = True
-CLUTTERED_SCENE_OBSTACLES_NUM = 50
+CLUTTERED_SCENE_OBSTACLES_NUM = 0
 
 ## MODEL
 #MJ_GRASP_DIR="/home/tad/1_MUJOCO/MJ_GRASP"
@@ -73,8 +73,8 @@ OBJECT_TYPE = file_name(OBJECT_MESH_FILEPATH) if OBJECT_MESH_FILEPATH else DEFAU
 OBJECT_NAME = f"GraspObject_{OBJECT_TYPE}"
 OBJECT_MOCAP_NAME = f"{OBJECT_NAME}_mocap"
 OBJECT_POINTCLOUD_FILEPATH_TXT = f"{GRASP_LOCOMO_DIR}/Clouds/{OBJECT_TYPE}_cloud.txt"
-last_object_pose: np.ndarray = np.empty(7)
-last_object_displacement_check_time = time.time()
+last_obj_pose: np.ndarray = np.empty(7)
+last_obj_displacement_check_time = time.time()
 OBJECT_DISPLACEMENT_CHECK_TIME_INVERVAL = 5 # sec
 
 ## ARM
@@ -429,18 +429,18 @@ def rollout_mjx(model_name: str, nbatch: int, nstep: int, skip_jit=False) -> Non
   total_jit += jit_time
   print(f"Rollout MJX with JIT [{cache_name}] took {total_jit:0.1f} seconds")
 
-def get_global_grasp_pose(data: mj.MjData, grasp_idx: int, grasp_type: GraspType = GraspType.GRASP) -> GraspPose:
-  obj = data.body(OBJECT_NAME)
-  obj_pose = [obj.xpos, obj.xquat]
-  local_grasp = LOCAL_GRASPS[grasp_idx].get_pose(grasp_type)
+def get_global_grasp_pose(grasp_idx: int, grasp_type: GraspType,
+                          obj_pose: list[np.ndarray]) -> tuple[GraspPose, LocalGrasp]:
+  local_grasp = LOCAL_GRASPS[grasp_idx]
+  local_grasp_pose = local_grasp.get_pose(grasp_type)
   assert local_grasp, f"grasp_idx: {grasp_idx} vs total no: {len(LOCAL_GRASPS)}"
   global_grasp_pos = np.empty(3)
   global_grasp_quat = np.empty(4)
   # NOTE: Original [local_grasp] is in Object's frame, so object is transformed in World frame first then comes the gripper
   mj.mju_mulPose(global_grasp_pos, global_grasp_quat,
                  obj_pose[0], obj_pose[1],
-                 local_grasp[0], local_grasp[1])
-  return [global_grasp_pos, global_grasp_quat]
+                 local_grasp_pose[0], local_grasp_pose[1])
+  return [global_grasp_pos, global_grasp_quat], local_grasp
 
 def show_next_grasp(data: mj.MjData, gripper_base_spec: mj.MjsBody):
   # Manage show time interval
@@ -455,8 +455,10 @@ def show_next_grasp(data: mj.MjData, gripper_base_spec: mj.MjsBody):
   if SINGULAR_MODE:
     if cur_grasp_idx == len(LOCAL_GRASPS):
       cur_grasp_idx = 0
-    next_grasp_pose = get_global_grasp_pose(data, cur_grasp_idx, GraspType.GRASP)
+    obj = data.body(OBJECT_NAME)
+    next_grasp_pose, local_grasp = get_global_grasp_pose(cur_grasp_idx, GraspType.GRASP, obj_pose=[obj.xpos, obj.xquat])
     teleport_gripper(data, gripper_base_spec, next_grasp_pose)
+    #data.joint(2).qpos = (data.model.jnt_range[2][1] - data.model.jnt_range[2][0]) * (local_grasp.gripper_closed_width/local_grasp.gripper_open_width)
   else:
     grasps_no = len(GLOBAL_FREE_GRASP_POSES)
     if grasps_no:
@@ -505,25 +507,27 @@ def recalculate_local_grasps(model: mj.MjModel, data: mj.MjData, gripper_base_sp
     local_grasp.recalculate(grasp_type, obj_body, gripper_body)
   write_out_grasps(LOCAL_GRASPS, out_txt_path)
 
-def check_object_displacement(data: mj.MjData) -> bool:
+def check_object_displacement(data: mj.MjData) -> Optional[list[np.ndarray]]:
   if SINGULAR_MODE:
-    return False
+    return None
 
   # Manage show time interval
-  global last_object_displacement_check_time
+  global last_obj_displacement_check_time
   cur_time = time.time()
-  if (cur_time - last_object_displacement_check_time) < OBJECT_DISPLACEMENT_CHECK_TIME_INVERVAL:
-    return False
-  last_object_displacement_check_time = cur_time
+  if (cur_time - last_obj_displacement_check_time) < OBJECT_DISPLACEMENT_CHECK_TIME_INVERVAL:
+    return None
+  last_obj_displacement_check_time = cur_time
 
   # Update [last_object_pose]
-  global last_object_pose
-  object_pose = np.concatenate([np.array(data.body(OBJECT_NAME).xpos), np.array(data.body(OBJECT_NAME).xquat)])
-  if not np.allclose(object_pose, last_object_pose, atol=0.1):
-    print(f"!!{OBJECT_NAME} DISPLACEMENT DETECTED: {object_pose - last_object_pose} -> RECALCULATE GLOBAL NON-COLLIDING GRASPS")
-    last_object_pose = object_pose
-    return True
-  return False
+  global last_obj_pose
+  obj = data.body(OBJECT_NAME)
+  obj_pose_list = [np.array(obj.xpos), np.array(obj.xquat)]
+  obj_pose = np.concatenate(obj_pose_list)
+  if not np.allclose(obj_pose, last_obj_pose, atol=0.1):
+    print(f"!!{OBJECT_NAME} DISPLACEMENT DETECTED: {obj_pose - last_obj_pose} -> RECALCULATE GLOBAL NON-COLLIDING GRASPS")
+    last_obj_pose = obj_pose
+    return obj_pose_list
+  return None
 
 def rollout(top_model: mj.MjModel, top_data: mj.MjData, nstep: int,
             nsample: int = 1,
@@ -640,27 +644,28 @@ def render(models: list[mj.MjModel], data: mj.MjData, state, sensordata, output_
 
 def grasps_batch_rollout(model: mj.MjModel, data: mj.MjData,
                          grasp_type: GraspType,
+                         target_obj_pose: list[np.ndarray],
                          batch_id_range: tuple[int, int],
                          nstep: int,
                          use_rollout_class: bool = False,
                          use_rollout_mjx: bool = False,
-                         reuse_thread_pools: bool = True):
+                         reuse_thread_pools: bool = True) -> tuple[list[mj.MjModel], list[mj.MjData], np.ndarray, np.ndarray]:
   nsample = batch_id_range[1] - batch_id_range[0] # Also nbatch
   assert 0 < nsample < len(LOCAL_GRASPS)
 
   # Set the initial states, setting gripper poses
   mj_reset_to_home(model, data)
   initial_states = mj_get_states(model, data, nsample)
+
+  # Note: For [mjSTATE_FULLPHYSICS] => first state is time, so qpos starting from index 1
+  # https://mujoco.readthedocs.io/en/stable/APIreference/APItypes.html#mjtstate
   QPOS_START_IDX = 1
   QPOS_FREE_JOINT_SIZE = 7  # 3 position + 4 orientation quat
   gripper_base_qpos_adr = mj_body_qpos_adr(model, GHOST_GRIPPER_BASE_NAME)
   qpos_start = QPOS_START_IDX + gripper_base_qpos_adr
   qpos_end = QPOS_START_IDX + gripper_base_qpos_adr + QPOS_FREE_JOINT_SIZE
   for i in range(nsample):
-    gripper_pose = get_global_grasp_pose(data, grasp_idx=batch_id_range[0] + i, grasp_type=grasp_type)
-
-    # Note: For [mjSTATE_FULLPHYSICS] => first state is time, so qpos starting from index 1
-    # https://mujoco.readthedocs.io/en/stable/APIreference/APItypes.html#mjtstate
+    gripper_pose, local_grasp = get_global_grasp_pose(grasp_idx=batch_id_range[0] + i, grasp_type=grasp_type, obj_pose=target_obj_pose)
     initial_states[i, qpos_start:qpos_end] = np.concatenate([gripper_pose[0], gripper_pose[1]])
 
   # Rollout
@@ -671,9 +676,10 @@ def grasps_batch_rollout(model: mj.MjModel, data: mj.MjData,
                  use_rollout_mjx=use_rollout_mjx,
                  reuse_thread_pools=reuse_thread_pools)
 
-def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, gripper_base_spec: mj.MjsBody) \
+def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, target_obj_pose: list[np.ndarray],
+                        gripper_base_spec: mj.MjsBody) \
         -> Optional[tuple[GraspPose, GraspPose, GraspPose]]:
-  def grasp_type_rollout(grasp_type: GraspType) -> Optional[GraspPose]:
+  def grasp_type_rollout(grasp_type: GraspType, obj_pose: list[np.ndarray]) -> Optional[GraspPose]:
     for batch_idx in range(int(len(LOCAL_GRASPS) / GRASP_BATCH_NUM)):
       # NOTE: Before rollout, this sets the initial states on each of [gr_datas](rolled-out grasp datas),
       # effectively moving gripper to a candidate grasp pose.
@@ -683,6 +689,7 @@ def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, gripper_base_spec: m
       gr_models, gr_datas, gr_state, gr_sensordata = (
         grasps_batch_rollout(model, data,
                              grasp_type=grasp_type,
+                             target_obj_pose=obj_pose,
                              batch_id_range=(batch_start, batch_end), # NOTE: [batch_start, batch_end) -> open end
                              nstep=GRASP_BATCH_STEPS_NUM,
                              use_rollout_mjx=GRASP_MJX_ROLLOUT_ENABLED))
@@ -706,7 +713,7 @@ def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, gripper_base_spec: m
           sensor_gripper_distance = np.min(sensor_gripper_data[7:])
           colliding = (sensor_gripper_distance < 0) or (sensor_gripper_pos[2] < 0)
         if not colliding:
-          non_collision_grasp_pose = [sensor_gripper_pos, sensor_gripper_quat ]
+          non_collision_grasp_pose = [sensor_gripper_pos, sensor_gripper_quat]
           print(f"* Grasp idx[{batch_start + data_idx}]: "
                 f"Found collision-free {grasp_type.name} pose:", non_collision_grasp_pose)
           break
@@ -716,11 +723,11 @@ def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, gripper_base_spec: m
     return None
 
   # Global collision-free gripper pose
-  free_pre = grasp_type_rollout(GraspType.PRE_GRASP)
+  free_pre = grasp_type_rollout(GraspType.PRE_GRASP, target_obj_pose)
   if free_pre:
-    free = grasp_type_rollout(GraspType.GRASP)
+    free = grasp_type_rollout(GraspType.GRASP, target_obj_pose)
     if free:
-      free_post = grasp_type_rollout(GraspType.POST_GRASP)
+      free_post = grasp_type_rollout(GraspType.POST_GRASP, target_obj_pose)
       return free_pre, free, free_post
   return None
 
@@ -732,10 +739,11 @@ def move_ee_target_to_next_grasp(model: mj.MjModel, data: mj.MjData,
                                  system: Ur10eRobotiq2f85DiffIK):
   global GLOBAL_FREE_GRASP_POSES
   # Upon object movement => Detect collision-free grasp poses
-  if check_object_displacement(data):
+  if (obj_pose := check_object_displacement(data)) is not None:
     # Rollout with multi-LOCAL_GRASPS with collision check with [model, data] as base-reference only,
     # to make rollout copies
-    GLOBAL_FREE_GRASP_POSES = [*grasps_full_rollout(model, data, system.ghost_hand_base_spec)]
+    GLOBAL_FREE_GRASP_POSES = [*grasps_full_rollout(model, data, target_obj_pose=obj_pose,
+                                                    gripper_base_spec=system.ghost_hand_base_spec)]
 
   # Move gripper to the next grasp
   global cur_grasp_idx
@@ -786,11 +794,11 @@ def run_gripper_only(model: mj.MjModel, data: mj.MjData,
         mj.mj_step(model, data)
 
       # Upon object movement => Detect collision-free grasp poses
-      if check_object_displacement(data):
+      if (obj_pose := check_object_displacement(data)) is not None:
         # Rollout with multi-LOCAL_GRASPS with collision check with [model, data] as base-reference only,
         # to make rollout copies
         global GLOBAL_FREE_GRASP_POSES
-        GLOBAL_FREE_GRASP_POSES = [*grasps_full_rollout(model, data, gripper_base_spec)]
+        GLOBAL_FREE_GRASP_POSES = [*grasps_full_rollout(model, data, obj_pose, gripper_base_spec)]
 
       # Show gripper at the next grasp
       show_next_grasp(data, gripper_base_spec)
@@ -811,10 +819,14 @@ def run_gripper_only_scene(kinematics_only: bool = True, save_to_xml: bool = Fal
   # NOTE: NOT USE MJX ROLLOUT HERE YET IN THIS PHASE
   if BLOCKDROP_MODE:
     # 1.1- Step num: just need to be large enough for cluttered scene to settle
-    nsteps = int(3 / main_model.opt.timestep) if CLUTTERED_SCENE_PHYSICS_ENABLED else 5
+    nsteps = int(5 / main_model.opt.timestep) if CLUTTERED_SCENE_PHYSICS_ENABLED else 5
     print("Prepare the physics scene - Cluttered:", CLUTTERED_SCENE_PHYSICS_ENABLED)
     mj_reset_to_home(main_model, main_data)
     rollout(main_model, main_data, nsteps)
+    mj_teleport_body(main_data, main_spec.body(OBJECT_NAME), np.array([0,0,0,1,0,0,0]))
+    mj.mj_step(main_model, main_data)
+    obj = main_data.body(OBJECT_NAME)
+    print(obj.xpos, obj.xquat)
 
   # 1.2- Recompile [main_model, main_data] with gripper's sensors
   # NOTE: Why recompiling? -> To make the earlier block-drop rollout (1.1) faster as without sensors
@@ -869,6 +881,6 @@ if __name__ == "__main__":
   if SCENE_GRIPPER_ONLY:
     # [SINGULAR_MODE] must run in physics (using mj_step()) for mocap dynamics binding to [target_obj] to work
     # Also dragging objects with free joint only works in Physics mode
-    run_gripper_only_scene(kinematics_only=False)
+    run_gripper_only_scene(kinematics_only=True)
   else:
     run_arm_gripper_scene()
