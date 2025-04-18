@@ -52,8 +52,8 @@ CLUTTERED_SCENE_PHYSICS_ENABLED = True
 CLUTTERED_SCENE_OBSTACLES_NUM = 0
 
 ## MODEL
-#MJ_GRASP_DIR="/home/tad/1_MUJOCO/MJ_GRASP"
-MJ_GRASP_DIR="/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/MUJOCO/MJ_GRASP"
+MJ_GRASP_DIR="/home/tad/1_MUJOCO/MJ_GRASP"
+#MJ_GRASP_DIR="/media/ducthan/376b23a1-5a02-4960-b3ca-24b2fcef8f891/MUJOCO/MJ_GRASP"
 GRASP_LOCOMO_DIR=f"{MJ_GRASP_DIR}/grasplocomo"
 MODELS_DIR = f"{_CURRENT_DIR}/models"
 
@@ -535,7 +535,8 @@ def rollout(top_model: mj.MjModel, top_data: mj.MjData, nstep: int,
             use_rollout_class: bool = False,
             use_rollout_mjx: bool = False,
             reuse_thread_pools: bool = True,
-            skip_checks: bool = True) -> tuple[list[mj.MjModel], list[mj.MjData], np.ndarray, np.ndarray]:
+            skip_checks: bool = True,
+            kinematics_only: bool = True) -> tuple[list[mj.MjModel], list[mj.MjData], np.ndarray, np.ndarray]:
   if initial_states is None:
     initial_states = mj_get_states(top_model, top_data, nsample)
 
@@ -568,19 +569,22 @@ def rollout(top_model: mj.MjModel, top_data: mj.MjData, nstep: int,
     state = np.array([mj_get_states(top_model, d) for d in datas] if len(datas) > 1 else mj_get_states(top_model, datas))
   elif use_rollout_class:
     with mj_rollout.Rollout(nthread=CPU_NTHREAD) as rollout_instance:
-      state, sensordata = rollout_instance.rollout(models, datas, initial_states, nstep=nstep, skip_checks=skip_checks)
+      state, sensordata = rollout_instance.rollout(models, datas, initial_states, nstep=nstep, skip_checks=skip_checks,
+                                                   kinematics_only=kinematics_only)
   else:
     if skip_checks:
       mj_rollout.rollout(models, datas, initial_states,
                          nstep=nstep,
                          state=state, sensordata=sensordata,
                          skip_checks=True,
-                         persistent_pool=reuse_thread_pools)
+                         persistent_pool=reuse_thread_pools,
+                         kinematics_only=kinematics_only)
     else:
       state, sensordata = mj_rollout.rollout(models, datas, initial_states,
                                              nstep=nstep,
                                              state=state, sensordata=sensordata,
-                                             persistent_pool=reuse_thread_pools)
+                                             persistent_pool=reuse_thread_pools,
+                                             kinematics_only=kinematics_only)
 
   # End rollout
   if reuse_thread_pools:
@@ -649,7 +653,8 @@ def grasps_batch_rollout(model: mj.MjModel, data: mj.MjData,
                          nstep: int,
                          use_rollout_class: bool = False,
                          use_rollout_mjx: bool = False,
-                         reuse_thread_pools: bool = True) -> tuple[list[mj.MjModel], list[mj.MjData], np.ndarray, np.ndarray]:
+                         reuse_thread_pools: bool = True,
+                         kinematics_only: bool = True) -> tuple[list[mj.MjModel], list[mj.MjData], np.ndarray, np.ndarray]:
   nsample = batch_id_range[1] - batch_id_range[0] # Also nbatch
   assert 0 < nsample < len(LOCAL_GRASPS)
 
@@ -674,10 +679,12 @@ def grasps_batch_rollout(model: mj.MjModel, data: mj.MjData,
                  initial_states=initial_states,
                  use_rollout_class=use_rollout_class,
                  use_rollout_mjx=use_rollout_mjx,
-                 reuse_thread_pools=reuse_thread_pools)
+                 reuse_thread_pools=reuse_thread_pools,
+                 kinematics_only=kinematics_ony)
 
 def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, target_obj_pose: list[np.ndarray],
-                        gripper_base_spec: mj.MjsBody) \
+                        gripper_base_spec: mj.MjsBody,
+                        kinematics_only: bool) \
         -> Optional[tuple[GraspPose, GraspPose, GraspPose]]:
   def grasp_type_rollout(grasp_type: GraspType, obj_pose: list[np.ndarray]) -> Optional[GraspPose]:
     for batch_idx in range(int(len(LOCAL_GRASPS) / GRASP_BATCH_NUM)):
@@ -692,7 +699,8 @@ def grasps_full_rollout(model: mj.MjModel, data: mj.MjData, target_obj_pose: lis
                              target_obj_pose=obj_pose,
                              batch_id_range=(batch_start, batch_end), # NOTE: [batch_start, batch_end) -> open end
                              nstep=GRASP_BATCH_STEPS_NUM,
-                             use_rollout_mjx=GRASP_MJX_ROLLOUT_ENABLED))
+                             use_rollout_mjx=GRASP_MJX_ROLLOUT_ENABLED,
+                             kinematics_only=kinematics_only))
 
       # Render [models] with aggregated batch [state] on [gdatas[0]]
       if GRASP_BATCH_ROLLOUT_VISUALIZED:
@@ -798,7 +806,7 @@ def run_gripper_only(model: mj.MjModel, data: mj.MjData,
         # Rollout with multi-LOCAL_GRASPS with collision check with [model, data] as base-reference only,
         # to make rollout copies
         global GLOBAL_FREE_GRASP_POSES
-        GLOBAL_FREE_GRASP_POSES = [*grasps_full_rollout(model, data, obj_pose, gripper_base_spec)]
+        GLOBAL_FREE_GRASP_POSES = [*grasps_full_rollout(model, data, obj_pose, gripper_base_spec, kinematics_only)]
 
       # Show gripper at the next grasp
       show_next_grasp(data, gripper_base_spec)
@@ -822,11 +830,7 @@ def run_gripper_only_scene(kinematics_only: bool = True, save_to_xml: bool = Fal
     nsteps = int(5 / main_model.opt.timestep) if CLUTTERED_SCENE_PHYSICS_ENABLED else 5
     print("Prepare the physics scene - Cluttered:", CLUTTERED_SCENE_PHYSICS_ENABLED)
     mj_reset_to_home(main_model, main_data)
-    rollout(main_model, main_data, nsteps)
-    mj_teleport_body(main_data, main_spec.body(OBJECT_NAME), np.array([0,0,0,1,0,0,0]))
-    mj.mj_step(main_model, main_data)
-    obj = main_data.body(OBJECT_NAME)
-    print(obj.xpos, obj.xquat)
+    rollout(main_model, main_data, nsteps, kinematics_only=False)
 
   # 1.2- Recompile [main_model, main_data] with gripper's sensors
   # NOTE: Why recompiling? -> To make the earlier block-drop rollout (1.1) faster as without sensors
@@ -858,7 +862,7 @@ def run_arm_gripper_scene(kinematics_only: bool = True, save_to_xml: bool = Fals
     nstep = int(10 / main_model.opt.timestep) if CLUTTERED_SCENE_PHYSICS_ENABLED else 5
     print("Prepare the physics scene - Cluttered:", CLUTTERED_SCENE_PHYSICS_ENABLED)
     mj_reset_to_home(main_model, main_data)
-    rollout(main_model, main_data, nstep)
+    rollout(main_model, main_data, nstep, kinematics_only=False)
 
   # 1.2- Recompile [main_model, main_data] with gripper's sensors
   # NOTE: Why recompiling? -> To make the earlier block-drop rollout (1.1) faster as without sensors
@@ -881,6 +885,6 @@ if __name__ == "__main__":
   if SCENE_GRIPPER_ONLY:
     # [SINGULAR_MODE] must run in physics (using mj_step()) for mocap dynamics binding to [target_obj] to work
     # Also dragging objects with free joint only works in Physics mode
-    run_gripper_only_scene(kinematics_only=True)
+    run_gripper_only_scene(kinematics_only=not SINGULAR_MODE)
   else:
     run_arm_gripper_scene()
