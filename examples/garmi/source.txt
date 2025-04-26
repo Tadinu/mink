@@ -1,0 +1,1 @@
+https://github.com/tenfoldpaper/multipanda_ros2/tree/humble/garmi_packages/garmi_description/mujoco/garmi/assets
