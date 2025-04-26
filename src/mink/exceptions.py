@@ -85,6 +85,16 @@ class InvalidMocapBody(MinkError):
         )
         super().__init__(message)
 
+class InvalidSite(MinkError):
+    """Exception raised when a site of a given name does not exist."""
+
+    def __init__(self, site_name: str, model: mujoco.MjModel):
+        available_site_names = [model.site(i).name for i in range(model.nsite)]
+        message = (
+            f"Body '{site_name}' is not a site. "
+            f"Available site bodies: {available_site_names}"
+        )
+        super().__init__(message)
 
 class NotWithinConfigurationLimits(MinkError):
     """Exception raised when a configuration violates its limits."""

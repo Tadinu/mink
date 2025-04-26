@@ -60,7 +60,7 @@ if __name__ == "__main__":
             lm_damping=1.0,
         ),
         posture_task := mink.PostureTask(model, cost=1e-1),
-        com_task := mink.ComTask(cost=10.0),
+        com_task := mink.ComTask(name="comTask", cost=10.0),
     ]
 
     feet_tasks = []

@@ -1,3 +1,4 @@
+
 import mujoco
 import numpy as np
 
@@ -53,7 +54,6 @@ def move_mocap_to_frame(
 
     data.mocap_pos[mocap_id] = xpos.copy()
     mujoco.mju_mat2Quat(data.mocap_quat[mocap_id], xmat)
-
 
 def get_freejoint_dims(model: mujoco.MjModel) -> tuple[list[int], list[int]]:
     """Get all floating joint configuration and tangent indices.

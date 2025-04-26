@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import mujoco
 import numpy as np
 
-from ..exceptions import InvalidMocapBody
+from ..exceptions import InvalidMocapBody, InvalidSite
 from .base import MatrixLieGroup
 from .so3 import SO3
 from .utils import get_epsilon, skew
@@ -93,6 +93,15 @@ class SE3(MatrixLieGroup):
         )
 
     @classmethod
+    def from_site_id(cls, data: mujoco.MjData, site_id: int) -> SE3:
+        site_quat = np.empty(4)
+        mujoco.mju_mat2Quat(site_quat, data.site_xmat[site_id])
+        return SE3.from_rotation_and_translation(
+            rotation=SO3(site_quat),
+            translation=data.site_xpos[site_id],
+        )
+
+    @classmethod
     def from_mocap_name(
         cls, model: mujoco.MjModel, data: mujoco.MjData, mocap_name: str
     ) -> SE3:
@@ -100,6 +109,15 @@ class SE3(MatrixLieGroup):
         if mocap_id == -1:
             raise InvalidMocapBody(mocap_name, model)
         return SE3.from_mocap_id(data, mocap_id)
+
+    @classmethod
+    def from_site_name(
+        cls, model: mujoco.MjModel, data: mujoco.MjData, site_name: str
+    ) -> SE3:
+        site_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_SITE, site_name)
+        if site_id == -1:
+            raise InvalidSite(site_name, model)
+        return SE3.from_site_id(data, site_id)
 
     @classmethod
     def sample_uniform(cls) -> SE3:

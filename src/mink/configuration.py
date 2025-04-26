@@ -277,15 +277,22 @@ class Configuration:
         mujoco.mj_integratePos(self.model, q, velocity, dt)
         return q
 
-    def integrate_inplace(self, velocity: np.ndarray, dt: float) -> None:
+    def integrate_inplace(self, velocity: np.ndarray, dt: float, dof_ids: Optional[list[int]] = None,
+                          kinematics_only: Optional[bool] = True) -> None:
         """Integrate a velocity and update the current configuration inplace.
 
         Args:
             velocity: The velocity in tangent space.
             dt: Integration duration in [s].
+            dof_ids: List of dof ids to integrate. If None, all dofs are integrated.
+            kinematics_only: If True, only compute kinematic quantities. Else, a full mj_step is done
         """
-        mujoco.mj_integratePos(self.model, self.data.qpos, velocity, dt)
-        self.update()
+        if dof_ids:
+            q = self.integrate(velocity, dt)
+            self.data.qpos[dof_ids] = q[dof_ids]
+        else:
+            mujoco.mj_integratePos(self.model, self.data.qpos, velocity, dt)
+        self.update(kinematics_only=kinematics_only)
 
     def get_inertia_matrix(self) -> np.ndarray:
         r"""Return the joint-space inertia matrix at the current configuration.
