@@ -23,14 +23,14 @@ _BROADPHASE_MIN_PAIRS = 16
 
 
 def compute_contact_normal_jacobian(
-    model: mujoco.MjModel,
-    data: mujoco.MjData,
-    geom1_id: int,
-    geom2_id: int,
-    fromto: np.ndarray,
-    normal: np.ndarray,
-    jac1: np.ndarray,
-    jac2: np.ndarray,
+        model: mujoco.MjModel,
+        data: mujoco.MjData,
+        geom1_id: int,
+        geom2_id: int,
+        fromto: np.ndarray,
+        normal: np.ndarray,
+        jac1: np.ndarray,
+        jac2: np.ndarray,
 ) -> np.ndarray:
     """Compute the contact normal Jacobian between two geoms."""
     normal[:] = fromto[3:] - fromto[:3]
@@ -53,7 +53,7 @@ def _is_welded_together(model: mujoco.MjModel, geom_id1: int, geom_id2: int) -> 
 
 
 def _are_geom_bodies_parent_child(
-    model: mujoco.MjModel, geom_id1: int, geom_id2: int
+        model: mujoco.MjModel, geom_id1: int, geom_id2: int
 ) -> bool:
     """Returns true if the geom bodies have a parent-child relationship.
 
@@ -83,7 +83,7 @@ def _are_geom_bodies_parent_child(
 
 
 def _is_pass_contype_conaffinity_check(
-    model: mujoco.MjModel, geom_id1: int, geom_id2: int
+        model: mujoco.MjModel, geom_id1: int, geom_id2: int
 ) -> bool:
     """Returns true if the geoms pass the contype/conaffinity check."""
     cond1 = bool(model.geom_contype[geom_id1] & model.geom_conaffinity[geom_id2])
@@ -123,13 +123,13 @@ class CollisionAvoidanceLimit(Limit):
     """
 
     def __init__(
-        self,
-        model: mujoco.MjModel,
-        geom_pairs: CollisionPairs,
-        gain: float = 0.85,
-        minimum_distance_from_collisions: float = 0.005,
-        collision_detection_distance: float = 0.05,
-        bound_relaxation: float = 0.0,
+            self,
+            model: mujoco.MjModel,
+            geom_pairs: CollisionPairs,
+            gain: float = 0.85,
+            minimum_distance_from_collisions: float = 0.005,
+            collision_detection_distance: float = 0.05,
+            bound_relaxation: float = 0.0,
         broadphase: bool = True,
     ):
         """Initialize collision avoidance limit.
@@ -268,9 +268,9 @@ class CollisionAvoidanceLimit(Limit):
         return np.concatenate(survivors)
 
     def compute_qp_inequalities(
-        self,
-        configuration: Configuration,
-        dt: float,
+            self,
+            configuration: Configuration,
+            dt: float,
     ) -> Constraint:
         r"""Compute the configuration-dependent collision avoidance limits.
 
@@ -350,7 +350,7 @@ class CollisionAvoidanceLimit(Limit):
             geom_id_pairs.append((id_pair_A, id_pair_B))
         return geom_id_pairs
 
-    def _construct_geom_id_pairs(self, geom_pairs):
+    def _construct_geom_id_pairs(self, geom_pairs, collision_only: bool = False):
         """Returns a set of geom ID pairs for all possible geom-geom collisions.
 
         The contacts are added based on the following heuristics:
@@ -372,7 +372,7 @@ class CollisionAvoidanceLimit(Limit):
                 )
                 contype_conaffinity_cond = _is_pass_contype_conaffinity_check(
                     self.model, geom_a, geom_b
-                )
+                ) if collision_only else True
                 if weld_body_cond and parent_child_cond and contype_conaffinity_cond:
                     geom_id_pairs.append((min(geom_a, geom_b), max(geom_a, geom_b)))
         # Deduplicate pairs in case of overlapping geom groups.

@@ -9,12 +9,13 @@ from loop_rate_limiters import RateLimiter
 
 import mink
 from examples.arm_hand_iiwa_allegro import HOME_QPOS
-from examples.grasp.utils import mj_add_mocap_body, mj_set_body_tree_collision_enabled
+from examples.grasp.utils import mj_spec_add_mocap_body, mj_spec_set_body_tree_collision_enabled
 
 _HERE = Path(__file__).parent
 
 IDENTITY_WXYZ = np.array([1., 0., 0., 0.])
 ZERO_XYZ = np.zeros(3)
+
 
 class Ur10eRobotiq2f85:
     # ur10e
@@ -28,7 +29,7 @@ class Ur10eRobotiq2f85:
     HAND_MODEL_NAME = ""
     HAND_BASE_NAME = "base_mount"
     HAND_HOME_QPOS = [0., 0., 0., 0.,
-                      0., 0., 0. ,0.]
+                      0., 0., 0., 0.]
     HAND_DOFS_NO = len(HAND_HOME_QPOS)
 
     # ee target
@@ -94,7 +95,7 @@ class Ur10eRobotiq2f85:
 
         # Limits (position/velocity, joints, collision, etc.)
         self._config_limits()
-        
+
     def _config_tasks(self) -> None:
         # EE task
         self.ee_task = mink.FrameTask(
@@ -112,7 +113,7 @@ class Ur10eRobotiq2f85:
     def _config_limits(self) -> None:
         # Enable collision avoidance between the following geoms
         collision_pairs = [
-            #(["wrist_3_link"], ["floor", "wall"]),
+            # (["wrist_3_link"], ["floor", "wall"]),
             (["wrist_3_link"], ["floor"]),
         ]
         # Max velocities
@@ -132,9 +133,9 @@ class Ur10eRobotiq2f85:
         ]
 
     def update_tasks(self) -> None:
-        self._update_task_ee()
+        self._update_task_ees()
 
-    def _update_task_ee(self) -> None:
+    def _update_task_ees(self) -> None:
         # Update kuka end-effector task, as [target]'s SE3
         T_wt = mink.SE3.from_mocap_name(self.model, self.data, self.EE_TARGET_MOCAP_NAME)
         self.ee_task.set_target(T_wt)
@@ -156,6 +157,7 @@ class Ur10eRobotiq2f85:
                                       frame_pos=target_pos,
                                       frame_quat=self.EE_TARGET_QUAT_DEFAULT)
 
+
 class Ur10eRobotiq2f85DiffIK:
     DT: float = 0.01
 
@@ -176,7 +178,7 @@ class Ur10eRobotiq2f85DiffIK:
         self.rate: RateLimiter = None
 
         # Solver
-        self.solver_name: str = "quadprog" # "osqp"
+        self.solver_name: str = "quadprog"  # "osqp"
 
     def construct_robot_system_spec(self) -> mj.MjSpec:
         # https://github.com/google-deepmind/mujoco/blob/main/python/mjspec.ipynb
@@ -185,28 +187,28 @@ class Ur10eRobotiq2f85DiffIK:
         print("SYSTEM MODEL NAME: ", self.arm_spec.modelname)
         Ur10eRobotiq2f85.ARM_BODIES_NAMES = [body.name for body in self.arm_spec.bodies]
         # Disable arm's bodies collision
-        mj_set_body_tree_collision_enabled(self.arm_spec.bodies[1], False)
+        mj_spec_set_body_tree_collision_enabled(self.arm_spec.bodies[1], False)
 
         self.hand_spec = mj.MjSpec.from_file(self.hand_xml)
         Ur10eRobotiq2f85.HAND_MODEL_NAME = self.hand_spec.modelname
         self.hand_base_spec = self.hand_spec.worldbody.find_child(Ur10eRobotiq2f85.HAND_BASE_NAME)
         self.hand_base_spec.quat = IDENTITY_WXYZ
-        #self.hand_base_spec.pos = (0, 0, 0.01)
+        # self.hand_base_spec.pos = (0, 0, 0.01)
 
         # Attach [hand_spec] to [arm_spec]
         attach_site = self.arm_spec.site(Ur10eRobotiq2f85.ARM_HAND_ATTACHMENT_SITE_NAME)
         attach_site.attach_body(self.hand_spec.worldbody, Ur10eRobotiq2f85.attach_prefix())
 
         # TODO: Remove prev "home" key from arm_spec once MuJoCo releases [rem_key] API
-        #self.arm_spec.add_key(name="home", qpos=self.HOME_QPOS)
+        # self.arm_spec.add_key(name="home", qpos=self.HOME_QPOS)
 
         # Refetch [self.hand_base_spec], which seems to be just the same after attachment, in [self.arm_spec]
         self.hand_base_spec = self.arm_spec.body(Ur10eRobotiq2f85.hand_base_full_name())
 
         # EE Target mocap body (under [arm_spec]'s worldbody)
-        mj_add_mocap_body(self.arm_spec, self.hand_base_spec, Ur10eRobotiq2f85.EE_TARGET_MOCAP_NAME,
-                          mocap_geom_type=mj.mjtGeom.mjGEOM_BOX,
-                          mocap_size=np.array([0.03] * 3))
+        mj_spec_add_mocap_body(self.arm_spec, self.hand_base_spec, Ur10eRobotiq2f85.EE_TARGET_MOCAP_NAME,
+                               mocap_geom_type=mj.mjtGeom.mjGEOM_BOX,
+                               mocap_size=np.array([0.03] * 3))
 
         # Enabled [gravcomp]
         for arm_body in self.arm_spec.bodies:
@@ -223,7 +225,7 @@ class Ur10eRobotiq2f85DiffIK:
 
         # 2- Compile robot system model & Make data, also setting up robot configuration
         self.robot = Ur10eRobotiq2f85()
-        self.robot.setup(model=system_spec.compile()) # NOTE: MjData is created here-in in robot's configuration
+        self.robot.setup(model=system_spec.compile())  # NOTE: MjData is created here-in in robot's configuration
         # self.robot.OBSTACLE_NAMES = [self.BALL_NAME]
 
     def run(self, callback: Optional[Callable] = None, kinematics_only: bool = False) -> None:
@@ -275,6 +277,7 @@ class Ur10eRobotiq2f85DiffIK:
                 # Visualize at fixed FPS.
                 viewer.sync()
                 rate.sleep()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
