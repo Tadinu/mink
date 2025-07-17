@@ -21,10 +21,12 @@ class MatrixLieGroup(abc.ABC):
     space_dim: int
 
     @overload
-    def __matmul__(self, other: Self) -> Self: ...
+    def __matmul__(self, other: Self) -> Self:
+        ...
 
     @overload
-    def __matmul__(self, other: np.ndarray) -> np.ndarray: ...
+    def __matmul__(self, other: np.ndarray) -> np.ndarray:
+        ...
 
     def __matmul__(self, other: Self | np.ndarray) -> Self | np.ndarray:
         """Overload of the @ operator."""
@@ -92,6 +94,9 @@ class MatrixLieGroup(abc.ABC):
     def adjoint(self) -> np.ndarray:
         """Computes the adjoint."""
         raise NotImplementedError
+
+    def adjoint_dual(self) -> np.ndarray:
+        return self.inverse().adjoint()
 
     @abc.abstractmethod
     def inverse(self) -> Self:

@@ -9,6 +9,7 @@ system that can be attached to various parts of the robot, such as a body, geom,
 
 import logging
 import os
+from typing import Optional
 
 import mujoco
 import numpy as np
@@ -43,10 +44,10 @@ class Configuration:
     """
 
     def __init__(
-        self,
-        model: mujoco.MjModel,
-        data: Optional[mujoco.MjData] = None,
-        q: Optional[np.ndarray] = None,
+            self,
+            model: mujoco.MjModel,
+            data: Optional[mujoco.MjData] = None,
+            q: Optional[np.ndarray] = None,
     ):
         """Constructor.
 
@@ -64,6 +65,7 @@ class Configuration:
         limited &= model.jnt_type != mujoco.mjtJoint.mjJNT_FREE
         self._limited_jnt_ids = np.where(limited)[0]
         self._limited_qposadr = model.jnt_qposadr[self._limited_jnt_ids]
+        self._limited_dofadr = model.jnt_dofadr[self._limited_jnt_ids]
         self._limited_range = model.jnt_range[self._limited_jnt_ids]
 
         # Cached identity matrix for QP assembly.
@@ -75,17 +77,19 @@ class Configuration:
         """Run forward kinematics.
 
         Args:
-            q: Optional configuration vector to override internal `data.qpos` with.
+            q: Optional configuration vector to override internal `data.qpos` or `data.ctrl` with.
             kinematics_only: If True, only compute kinematic quantities. Else, a full mj_step is done
         """
-        if q is not None:
-            self.data.qpos[:q.size] = q
         # The minimal function call required to get updated frame transforms is
         # mj_kinematics. An extra call to mj_comPos is required for updated Jacobians.
         if kinematics_only:
+            if q is not None:
+                self.data.qpos[self._limited_qposadr] = q
             mujoco.mj_kinematics(self.model, self.data)
             mujoco.mj_comPos(self.model, self.data)
         else:
+            if q is not None:
+                self.data.ctrl[self._limited_dofadr] = q
             mujoco.mj_step(self.model, self.data)
         if self.model.neq > 0:
             mujoco.mj_makeConstraint(self.model, self.data)
@@ -118,7 +122,7 @@ class Configuration:
             return
         qvals = self.data.qpos[self._limited_qposadr]
         violations = (qvals < self._limited_range[:, 0] - tol) | (
-            qvals > self._limited_range[:, 1] + tol
+                qvals > self._limited_range[:, 1] + tol
         )
         if not violations.any():
             return
@@ -195,7 +199,7 @@ class Configuration:
         return frame_id
 
     def _get_transform_frame_to_world_wxyz_xyz(
-        self, frame_name: str, frame_type: str
+            self, frame_name: str, frame_type: str
     ) -> np.ndarray:
         """Return the raw wxyz_xyz[7] array for a frame pose. Internal use."""
         frame_id = self._resolve_frame_id(frame_name, frame_type)
@@ -223,11 +227,11 @@ class Configuration:
         )
 
     def _get_transform_wxyz_xyz(
-        self,
-        source_name: str,
-        source_type: str,
-        dest_name: str,
-        dest_type: str,
+            self,
+            source_name: str,
+            source_type: str,
+            dest_name: str,
+            dest_type: str,
     ) -> np.ndarray:
         """Return the raw wxyz_xyz[7] for a relative transform. Internal use."""
         source = self._get_transform_frame_to_world_wxyz_xyz(source_name, source_type)
@@ -239,11 +243,11 @@ class Configuration:
         return (dest_se3.inverse() @ source_se3).wxyz_xyz
 
     def get_transform(
-        self,
-        source_name: str,
-        source_type: str,
-        dest_name: str,
-        dest_type: str,
+            self,
+            source_name: str,
+            source_type: str,
+            dest_name: str,
+            dest_type: str,
     ) -> SE3:
         """Get the pose of a frame with respect to another frame at the current
         configuration.
@@ -263,7 +267,7 @@ class Configuration:
             )
         )
 
-    def integrate(self, velocity: np.ndarray, dt: float) -> np.ndarray:
+    def integrate(self, velocity: np.ndarray, dt: float) -> Optional[np.ndarray]:
         """Integrate a velocity starting from the current configuration.
 
         Args:
@@ -273,23 +277,25 @@ class Configuration:
         Returns:
             The new configuration after integration.
         """
+        if velocity is None:
+            return None
         q = self.data.qpos.copy()
         mujoco.mj_integratePos(self.model, q, velocity, dt)
         return q
 
-    def integrate_inplace(self, velocity: np.ndarray, dt: float, dof_ids: Optional[list[int]] = None,
+    def integrate_inplace(self, velocity: np.ndarray, dt: float, qpos_ids: Optional[list[int]] = None,
                           kinematics_only: Optional[bool] = True) -> None:
         """Integrate a velocity and update the current configuration inplace.
 
         Args:
             velocity: The velocity in tangent space.
             dt: Integration duration in [s].
-            dof_ids: List of dof ids to integrate. If None, all dofs are integrated.
+            qpos_ids: List of dof ids to integrate. If None, all dofs are integrated.
             kinematics_only: If True, only compute kinematic quantities. Else, a full mj_step is done
         """
-        if dof_ids:
+        if qpos_ids:
             q = self.integrate(velocity, dt)
-            self.data.qpos[dof_ids] = q[dof_ids]
+            self.data.qpos[qpos_ids] = q[qpos_ids]
         else:
             mujoco.mj_integratePos(self.model, self.data.qpos, velocity, dt)
         self.update(kinematics_only=kinematics_only)
@@ -318,11 +324,12 @@ class Configuration:
             velocity: The velocity in tangent space.
             dt: Integration duration in [s].
         """
-        #mujoco.mj_integratePos(self.model, self.data.qpos, velocity, dt)
+        # mujoco.mj_integratePos(self.model, self.data.qpos, velocity, dt)
         q = self.integrate(velocity, dt)
         self.data.ctrl[:arm_dof] = velocity[:arm_dof]
         self.data.qpos[-hand_dof:] = q[-hand_dof:]
         self.update(kinematics_only=False)
+
     # Aliases.
 
     @property

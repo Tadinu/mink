@@ -1,6 +1,6 @@
 """Build and solve the inverse kinematics problem."""
 
-from typing import Sequence
+from typing import Sequence, Optional
 
 import numpy as np
 import qpsolvers
@@ -12,7 +12,7 @@ from .tasks import BaseTask, Objective, Task
 
 
 def _compute_qp_objective(
-    configuration: Configuration, tasks: Sequence[BaseTask], damping: float
+        configuration: Configuration, tasks: Sequence[BaseTask], damping: float
 ) -> Objective:
     H = np.eye(configuration.model.nv) * damping
     c = np.zeros(configuration.model.nv)
@@ -24,8 +24,8 @@ def _compute_qp_objective(
 
 
 def _compute_qp_inequalities(
-    configuration: Configuration, limits: Sequence[Limit] | None, dt: float
-) -> tuple[np.ndarray | None, np.ndarray | None]:
+        configuration: Configuration, limits: Optional[Sequence[Limit]], dt: float
+) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
     if limits is None:
         limits = [ConfigurationLimit(configuration.model)]
     G_list: list[np.ndarray] = []
@@ -42,8 +42,8 @@ def _compute_qp_inequalities(
 
 
 def _compute_qp_equalities(
-    configuration: Configuration,
-    constraints: Sequence[Task] | None,
+        configuration: Configuration,
+        constraints: Sequence[Task] | None,
 ) -> tuple[np.ndarray | None, np.ndarray | None]:
     if not constraints:
         return None, None
@@ -58,12 +58,12 @@ def _compute_qp_equalities(
 
 
 def build_ik(
-    configuration: Configuration,
-    tasks: Sequence[BaseTask],
-    dt: float,
-    damping: float = 1e-12,
-    limits: Sequence[Limit] | None = None,
-    constraints: Sequence[Task] | None = None,
+        configuration: Configuration,
+        tasks: Sequence[BaseTask],
+        dt: float,
+        damping: float = 1e-12,
+        limits: Optional[Sequence[Limit]] = None,
+        constraints: Optional[Sequence[Task]] = None,
 ) -> qpsolvers.Problem:
     r"""Build the quadratic program given the current configuration and tasks.
 
@@ -101,15 +101,15 @@ def build_ik(
 
 
 def solve_ik(
-    configuration: Configuration,
-    tasks: Sequence[BaseTask],
-    dt: float,
-    solver: str,
-    damping: float = 1e-12,
-    safety_break: bool = False,
-    limits: Sequence[Limit] | None = None,
-    constraints: Sequence[Task] | None = None,
-    **kwargs,
+        configuration: Configuration,
+        tasks: Sequence[BaseTask],
+        dt: float,
+        solver: str,
+        damping: float = 1e-12,
+        safety_break: bool = False,
+        limits: Optional[Sequence[Limit]] = None,
+        constraints: Optional[Sequence[Task]] = None,
+        **kwargs,
 ) -> np.ndarray:
     r"""Solve the differential inverse kinematics problem.
 
@@ -145,8 +145,10 @@ def solve_ik(
     problem = build_ik(configuration, tasks, dt, damping, limits, constraints)
     result = qpsolvers.solve_problem(problem, solver=solver, **kwargs)
     if not result.found:
-        raise NoSolutionFound(solver)
+        # raise NoSolutionFound(solver)
+        return None
     delta_q = result.x
-    assert delta_q is not None
-    v: np.ndarray = delta_q / dt
-    return v
+    # assert delta_q is not None
+    # v: np.ndarray = delta_q / dt
+    # return v
+    return delta_q / dt if delta_q is not None else None
